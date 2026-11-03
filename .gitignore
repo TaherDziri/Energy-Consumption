@@ -1,0 +1,35 @@
+# Dataset files - too large for GitHub
+data/
+*.csv
+*.zip
+*.gz
+*.parquet
+
+# Java build artifacts
+target/
+*.jar
+*.class
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+env/
+
+# PyTorch model files (large)
+*.pt
+*.pth
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# Logs
+*.log
+
+# Windows system files
+Thumbs.db
+desktop.ini
