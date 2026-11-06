@@ -5,7 +5,7 @@ import java.util.Map;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 
-/** Local pre-aggregation: same (household, day, timestamp) merged before the shuffle. */
+/** Local pre-aggregation: same (household, local day, timestamp) merged before the shuffle. */
 public class DailyConsumptionCombiner extends Reducer<Text, Text, Text, Text> {
 
     private final Text outValue = new Text();
@@ -22,8 +22,10 @@ public class DailyConsumptionCombiner extends Reducer<Text, Text, Text, Text> {
                 context.getCounter("P08", "value_parse_error").increment(1);
             }
         }
-        for (Map.Entry<String, double[]> e : acc.entries().entrySet()) {
-            outValue.set(e.getKey() + ";" + e.getValue()[0] + ";" + (long) e.getValue()[1]);
+        String tariff = acc.tariffGroup() == null ? "" : acc.tariffGroup();
+        for (Map.Entry<String, double[]> e : acc.sortedEntries()) {
+            outValue.set(tariff + ";" + (int) e.getValue()[2] + ";" + e.getKey()
+                    + ";" + e.getValue()[0] + ";" + (long) e.getValue()[1]);
             context.write(key, outValue);
         }
     }

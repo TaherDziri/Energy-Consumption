@@ -125,3 +125,32 @@ Please confirm:
 - [ ] Version bump of `docs/data-contract.md` to v1.1
 
 Once confirmed, Job 2 can be developed against the frozen v1.1 contract.
+
+---
+
+## 8. Decision (Taher, 2026-11-06)
+
+All four points are accepted, with one clarification on the DST convention.
+
+- [x] **Option A** - the Job 1 output is replaced by the 10-field TSV, written to
+      `/p08/gold/mr1_daily`. The v1.0 four-column output stays available as an
+      archive at `/p08/processed/daily_consumption` and is no longer updated.
+- [x] `tariff_group` source = the `stdorToU` column of the raw CSV
+      (`Std` / `ToU`). Any other value is dropped and counted, never guessed.
+- [x] DST convention for `n_missing_slots`: the day and the slot are **local**
+      (Europe/London), because the ToU calendar is local. `expected_slots` is
+      computed from the timezone rules: 48 ordinary, **46** spring forward,
+      **50** fall back. Therefore `n_missing_slots = expected - n_valid` and a
+      complete spring day is `46 / 0`, not `46 / 2`. On a fall-back day the
+      two physical half-hours that share slots 2 and 3 appear as two entries in
+      `series` (same slot index, different values).
+- [x] `docs/data-contract.md` bumped to **v1.1** with a change-log entry.
+
+Implementation notes for MR2:
+
+- `series` keeps the observed slots only, chronological by UTC timestamp;
+  a measured zero stays `slot:0.0`.
+- `peak_slot` is the slot index of `max(series)`; on a tie the earliest wins.
+- `total_kwh` keeps 3 decimals, `series`/`peak`/`avg` up to 6 decimals.
+- Empty day (no observed slot): `total_kwh=0.000` and fields 7-10 empty.
+  No such row exists in the current dataset, but MR2 must not divide by zero.

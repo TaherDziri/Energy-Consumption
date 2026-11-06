@@ -1,15 +1,16 @@
 package tn.isima.energy.job1;
 
 import java.io.IOException;
-import java.util.Locale;
+import java.time.LocalDate;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 
 /**
- * Writes exactly one CSV line per (household, day):
- *    household_id,date,total_kwh,reading_count
- * No header, no tab: the output separator is set to "" in the Driver.
+ * Writes exactly one TSV line per (household, local day), contract v1.1:
+ *    household_id, date, tariff_group, total_kwh, n_valid_slots,
+ *    n_missing_slots, peak_kwh_hh, peak_slot, avg_valid_kwh_hh, series
+ * No header, tab separated (separator is set in the Driver).
  */
 public class DailyConsumptionReducer extends Reducer<Text, Text, NullWritable, Text> {
 
@@ -34,14 +35,18 @@ public class DailyConsumptionReducer extends Reducer<Text, Text, NullWritable, T
 
         long duplicates = acc.occurrences() - acc.distinctReadings();
         if (duplicates > 0) context.getCounter("P08", "duplicate_rows_averaged").increment(duplicates);
-
-        int readings = acc.distinctReadings();
-        if (readings > 48) context.getCounter("P08", "days_more_than_48").increment(1);
+        if (acc.tariffConflict()) context.getCounter("P08", "tariff_conflict").increment(1);
 
         String[] k = key.toString().split("\\|");
-        outValue.set(k[0] + "," + k[1] + ","
-                + String.format(Locale.ROOT, "%.3f", acc.totalKwh()) + ","
-                + readings);
+        LocalDate date = LocalDate.parse(k[1]);
+
+        int expected = DailyRecord.expectedSlots(date);
+        if (expected != 48) context.getCounter("P08", "dst_days").increment(1);
+        if (acc.distinctReadings() > expected) {
+            context.getCounter("P08", "days_more_than_expected").increment(1);
+        }
+
+        outValue.set(DailyRecord.format(k[0], date, acc));
         context.write(NullWritable.get(), outValue);
     }
 }
