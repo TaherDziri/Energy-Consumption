@@ -1,35 +1,45 @@
-# Dataset files - too large for GitHub
-data/
-*.csv
-*.zip
-*.gz
-*.parquet
+# data - never committed
+data/raw/
+data/processed/*.csv
+!data/processed/.gitkeep
 
-# Java build artifacts
+# build
 target/
-*.jar
 *.class
+*.jar
 
-# Python cache
+# python
 __pycache__/
-*.pyc
-*.pyo
-.env
+*.py[cod]
+.venv/
 venv/
-env/
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
 
-# PyTorch model files (large)
+# models and experiment artifacts
+models/
 *.pt
 *.pth
+*.ckpt
+*.h5
+*.pkl
+*.joblib
+mlruns/
 
-# IDE files
+# ide / os
 .idea/
 .vscode/
 *.iml
-
-# Logs
-*.log
-
-# Windows system files
+.github/modernize/
+.DS_Store
 Thumbs.db
 desktop.ini
+
+# logs / env
+*.log
+logs/
+tmp/
+.env
+.env.*
