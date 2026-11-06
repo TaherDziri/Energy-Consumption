@@ -64,6 +64,7 @@ optional row LIMIT argument for smoke tests).
 
 - A reading is attributed to the calendar date of its own timestamp (Option A). A `00:00:00`
   reading counts in the new day although it may describe the previous evening (30-minute boundary effect).
-- `MAC004067` reports 31,186 zero values: valid data, not a parsing error.
+- `MAC004067` has 31,186 non-null source rows, all `0.0` (31,165 distinct half-hours after
+  deduplication): valid data, not a parsing error.
 - Very high per-household totals (e.g. `MAC005198` at 31,499 kWh over ~2.3 years) reflect the
   source data, not an aggregation error: they were reproduced independently from the raw file.

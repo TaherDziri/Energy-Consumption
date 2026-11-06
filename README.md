@@ -25,7 +25,7 @@ Person 2: MapReduce (Job 2, monthly) and deep learning (GRU, Autoencoder). Dashb
 | 4 | Half-hourly export + LSTM | next |
 | 5 | LSTM vs GRU comparison | pending |
 | 6 | Dashboard | pending |
-| 7 | Documentation + git | in progress |
+| 7 | Documentation + git | done (initial push) |
 
 ## Stack
 
