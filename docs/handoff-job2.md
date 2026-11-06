@@ -8,7 +8,15 @@
 
 ## Your first three actions
 
-1. Clone the repository and check out your branch (`solo-Rahma`).
+1. Clone the repository, then bring your branch up to date with the shared work:
+
+```
+git checkout solo-Rahma
+git merge origin/Main
+```
+
+`Main` contains the validated Job 1 and every document listed here; `solo-Rahma` was created
+before that work and does not, so merge before starting.
 2. Read `docs/data-contract.md` sections 2, 3 and 4. They define the input you may rely on
    and the exact schema your Job 2 must produce.
 3. Start the cluster (`docs/cluster-runbook.md`, section 3) and check that Job 1 output is present:
