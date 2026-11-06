@@ -10,25 +10,25 @@ If an implementation disagrees with this document, the document wins (then we up
 
 ## 1. Source dataset
 
-| Field | Value |
-|---|---|
-| Dataset | Smart meters in London - Low Carbon London (LCL) |
-| File | `data/raw/CC_LCL-FullData.csv` |
-| Size | 8,542,818,238 bytes |
-| Data rows (excluding header) | 167,932,474 |
-| Households (`LCLid`) | 5,566 |
-| Period | 2011-11-23 09:00:00 -> 2014-02-28 00:00:00 |
-| Tariff split | `Std` 134,148,703 rows / `ToU` 33,783,771 rows |
-| Version control | never committed (see `.gitignore`) |
+| Field                        | Value                                            |
+| ---------------------------- | ------------------------------------------------ |
+| Dataset                      | Smart meters in London - Low Carbon London (LCL) |
+| File                         | `data/raw/CC_LCL-FullData.csv`                   |
+| Size                         | 8,542,818,238 bytes                              |
+| Data rows (excluding header) | 167,932,474                                      |
+| Households (`LCLid`)         | 5,566                                            |
+| Period                       | 2011-11-23 09:00:00 -> 2014-02-28 00:00:00       |
+| Tariff split                 | `Std` 134,148,703 rows / `ToU` 33,783,771 rows   |
+| Version control              | never committed (see `.gitignore`)               |
 
 ### Columns
 
-| # | Column | Example | Type |
-|---|---|---|---|
-| 1 | `LCLid` | `MAC000002` | string |
-| 2 | `stdorToU` | `Std` or `ToU` | string |
-| 3 | `DateTime` | `2012-10-12 00:30:00.0000000` | timestamp, 7 fractional digits |
-| 4 | `KWH/hh (per half hour)` | ` 0.132` | decimal with a leading space |
+| #   | Column                   | Example                       | Type                           |
+| --- | ------------------------ | ----------------------------- | ------------------------------ |
+| 1   | `LCLid`                  | `MAC000002`                   | string                         |
+| 2   | `stdorToU`               | `Std` or `ToU`                | string                         |
+| 3   | `DateTime`               | `2012-10-12 00:30:00.0000000` | timestamp, 7 fractional digits |
+| 4   | `KWH/hh (per half hour)` | ` 0.132`                      | decimal with a leading space   |
 
 Exactly one header line, at the top of the file.
 
@@ -52,22 +52,22 @@ Exactly one header line, at the top of the file.
 
 ## 3. Job 1 output - daily consumption (DELIVERED)
 
-| Field | Value |
-|---|---|
-| HDFS path | `/p08/processed/daily_consumption/part-r-00000` |
+| Field      | Value                                                  |
+| ---------- | ------------------------------------------------------ |
+| HDFS path  | `/p08/processed/daily_consumption/part-r-00000`        |
 | Local copy | `data/processed/daily_consumption.csv` (not committed) |
-| Format | CSV, UTF-8, LF, no header, comma separated |
-| Rows | 3,510,403 |
-| Size | 106,583,320 bytes |
+| Format     | CSV, UTF-8, LF, no header, comma separated             |
+| Rows       | 3,510,403                                              |
+| Size       | 106,583,320 bytes                                      |
 
 ### Schema (fixed)
 
-| # | Column | Type | Meaning |
-|---|---|---|---|
-| 1 | `household_id` | string | `LCLid`, e.g. `MAC000002` |
-| 2 | `date` | `yyyy-MM-dd` | calendar day |
-| 3 | `total_kwh` | decimal (3 dp) | sum of deduplicated half-hourly values of that day |
-| 4 | `reading_count` | integer | number of distinct half-hour timestamps used that day (0 < n <= 48) |
+| #   | Column          | Type           | Meaning                                                             |
+| --- | --------------- | -------------- | ------------------------------------------------------------------- |
+| 1   | `household_id`  | string         | `LCLid`, e.g. `MAC000002`                                           |
+| 2   | `date`          | `yyyy-MM-dd`   | calendar day                                                        |
+| 3   | `total_kwh`     | decimal (3 dp) | sum of deduplicated half-hourly values of that day                  |
+| 4   | `reading_count` | integer        | number of distinct half-hour timestamps used that day (0 < n <= 48) |
 
 First rows (full sample: `docs/samples/daily_consumption_head20.csv`):
 
@@ -79,13 +79,13 @@ MAC000002,2012-10-14,13.223,48
 
 ### Invariants (verified on the real run)
 
-| Invariant | Value |
-|---|---|
-| Sum of `total_kwh` | 35,539,823.3 kWh |
-| Sum of `reading_count` | 167,811,461 (= 167,926,914 valid - 115,453 duplicates) |
-| Households present | 5,561 |
-| Date range | 2011-11-23 -> 2014-02-28 |
-| Days with more than 48 readings | 0 |
+| Invariant                       | Value                                                  |
+| ------------------------------- | ------------------------------------------------------ |
+| Sum of `total_kwh`              | 35,539,823.3 kWh                                       |
+| Sum of `reading_count`          | 167,811,461 (= 167,926,914 valid - 115,453 duplicates) |
+| Households present              | 5,561                                                  |
+| Date range                      | 2011-11-23 -> 2014-02-28                               |
+| Days with more than 48 readings | 0                                                      |
 
 ### Known anomalies
 
@@ -97,34 +97,34 @@ MAC000002,2012-10-14,13.223,48
 
 ### Job 1 counters (MapReduce group `P08`)
 
-| Counter | Value | Meaning |
-|---|---|---|
-| `readings_valid` | 167,926,914 | parseable, non-null rows |
-| `missing_null` | 5,560 | `Null` rows, skipped |
-| `malformed` | 0 | wrong column count |
-| `negative` | 0 | negative kWh values |
-| `value_parse_error` | 0 | non-numeric value |
-| `header_skipped` | 1 | header line |
-| `duplicate_rows_averaged` | 115,453 | rows collapsed by the averaging rule |
-| `days_more_than_48` | 0 | days with more than 48 distinct timestamps |
-| `days_dropped_empty` | 0 | days that produced no reading |
+| Counter                   | Value       | Meaning                                    |
+| ------------------------- | ----------- | ------------------------------------------ |
+| `readings_valid`          | 167,926,914 | parseable, non-null rows                   |
+| `missing_null`            | 5,560       | `Null` rows, skipped                       |
+| `malformed`               | 0           | wrong column count                         |
+| `negative`                | 0           | negative kWh values                        |
+| `value_parse_error`       | 0           | non-numeric value                          |
+| `header_skipped`          | 1           | header line                                |
+| `duplicate_rows_averaged` | 115,453     | rows collapsed by the averaging rule       |
+| `days_more_than_48`       | 0           | days with more than 48 distinct timestamps |
+| `days_dropped_empty`      | 0           | days that produced no reading              |
 
 ---
 
 ## 4. Job 2 output - monthly consumption (TO BE DELIVERED BY PERSON 2)
 
-| Field | Value |
-|---|---|
+| Field     | Value                                         |
+| --------- | --------------------------------------------- |
 | HDFS path | `/p08/processed/monthly_consumption/part-r-*` |
-| Format | CSV, UTF-8, LF, no header, comma separated |
-| Schema | `household_id,year_month,total_kwh,day_count` |
+| Format    | CSV, UTF-8, LF, no header, comma separated    |
+| Schema    | `household_id,year_month,total_kwh,day_count` |
 
-| # | Column | Type | Meaning |
-|---|---|---|---|
-| 1 | `household_id` | string | same key as Job 1 |
-| 2 | `year_month` | `yyyy-MM` | e.g. `2012-10` |
-| 3 | `total_kwh` | decimal | sum of the month's daily `total_kwh` |
-| 4 | `day_count` | integer | number of daily rows summed (days with data), not calendar days |
+| #   | Column         | Type      | Meaning                                                         |
+| --- | -------------- | --------- | --------------------------------------------------------------- |
+| 1   | `household_id` | string    | same key as Job 1                                               |
+| 2   | `year_month`   | `yyyy-MM` | e.g. `2012-10`                                                  |
+| 3   | `total_kwh`    | decimal   | sum of the month's daily `total_kwh`                            |
+| 4   | `day_count`    | integer   | number of daily rows summed (days with data), not calendar days |
 
 ### Recommended input
 
@@ -138,13 +138,13 @@ otherwise the monthly totals will not reconcile with Job 1.
 
 ### Acceptance tests for Job 2
 
-| Test | Expected |
-|---|---|
-| Sum of `total_kwh` over all months | 35,539,823.3 kWh (float tolerance) |
-| Sum of `day_count` | 3,510,403 |
-| Distinct households | 5,561 |
-| Distinct months | 28 (2011-11 -> 2014-02) |
-| Reconciliation per household | sum(Job 2 total_kwh) == sum(Job 1 total_kwh) |
+| Test                               | Expected                                     |
+| ---------------------------------- | -------------------------------------------- |
+| Sum of `total_kwh` over all months | 35,539,823.3 kWh (float tolerance)           |
+| Sum of `day_count`                 | 3,510,403                                    |
+| Distinct households                | 5,561                                        |
+| Distinct months                    | 28 (2011-11 -> 2014-02)                      |
+| Reconciliation per household       | sum(Job 2 total_kwh) == sum(Job 1 total_kwh) |
 
 Months without any daily row do not appear (no zero-filled rows).
 
@@ -154,15 +154,15 @@ Months without any daily row do not appear (no zero-filled rows).
 
 LSTM/GRU/Autoencoder need the 48-steps-per-day series; daily totals are not usable for them.
 
-| Field | Value |
-|---|---|
-| HDFS path | `/p08/processed/halfhourly_series/` |
-| Format | CSV, UTF-8, LF, no header |
-| Schema | `household_id,timestamp,kwh` |
-| `timestamp` | `yyyy-MM-dd HH:mm:ss` (fraction dropped) |
-| `kwh` | deduplicated value (mean of duplicates), `0.0` allowed |
+| Field              | Value                                                  |
+| ------------------ | ------------------------------------------------------ |
+| HDFS path          | `/p08/processed/halfhourly_series/`                    |
+| Format             | CSV, UTF-8, LF, no header                              |
+| Schema             | `household_id,timestamp,kwh`                           |
+| `timestamp`        | `yyyy-MM-dd HH:mm:ss` (fraction dropped)               |
+| `kwh`              | deduplicated value (mean of duplicates), `0.0` allowed |
 | Missing half-hours | absent rows by default; imputation policy to be agreed |
-| Expected rows | 167,811,461 |
+| Expected rows      | 167,811,461                                            |
 
 Open point to settle with Person 2 before Phase 4: whether missing half-hours are
 dropped (ragged sequences) or imputed (fixed 48-step windows).
@@ -178,6 +178,44 @@ dropped (ragged sequences) or imputed (fixed 48-step windows).
 
 ## 7. Change log
 
-| Version | Date | Change |
-|---|---|---|
-| 1.0 | 2026-11-06 | Initial contract after Job 1 validation on the full dataset |
+| Version | Date       | Change                                                      |
+| ------- | ---------- | ----------------------------------------------------------- |
+| 1.0     | 2026-11-06 | Initial contract after Job 1 validation on the full dataset |
+
+## MR2 slot / DST contract (Job 2 input)
+
+- Source timestamps in the raw CSV are UTC/GMT. Convert to Europe/London
+  before computing the local date and the slot.
+- `series` is a **list** of `[slot, kwh]` pairs. It is never a dictionary.
+- `slot = hour * 2 + minute // 30` using the converted Europe/London time.
+- `expected_slots` per local date:
+  - normal day: 48
+  - spring forward (last Sunday of March): 46 (slots 2 and 3 absent)
+  - fall back (last Sunday of October): 50 (slots 2 and 3 present twice)
+- `valid_slots` = number of entries in `series`
+  (physical half-hours, not distinct slots).
+- `n_missing_slots = expected_slots - valid_slots`.
+- On fall back, slots 2 (01:00) and 3 (01:30) may appear twice.
+  Those are two distinct physical half-hours and must be summed, not merged.
+- One row per `(household_id, date)`.
+
+Example (fall back, local date 2012-10-28):
+
+```json
+{
+  "household_id": "MAC000145",
+  "date": "2012-10-28",
+  "series": [
+    [0, 0.262],
+    [1, 0.157],
+    [2, 0.138],
+    [2, 0.082],
+    [3, 0.086],
+    [3, 0.138],
+    [4, 0.145]
+  ],
+  "expected_slots": 50,
+  "valid_slots": 50,
+  "n_missing_slots": 0
+}
+```
