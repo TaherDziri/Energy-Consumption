@@ -6,6 +6,10 @@
 - Image `apache/hadoop:3.3.6` (ships Hadoop 3.3.6 and Java 8 - do not use it with Java 11 bytecode).
 - The compose file: `infra/docker-compose.yml`.
 
+> Migration note: an earlier attempt used `bde2020/hadoop-*:2.0.0-hadoop3.2.1-java8`
+> with a root `docker-compose.yml` and `hadoop.env`. Those files were removed: `infra/docker-compose.yml`
+> is the only supported cluster definition and is the one Job 1 was validated on.
+
 ## 2. Topology
 
 | Service | Container | Hostname | Ports (host -> container) |
