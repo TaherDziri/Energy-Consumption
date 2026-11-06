@@ -78,11 +78,15 @@ Replaces the v1.0 four-column output, as requested in
 | 9   | `avg_valid_kwh_hh` | decimal        | `total_kwh / n_valid_slots`                                         |
 | 10  | `series`           | string         | `slot:kwh;slot:kwh;...` - **observed slots only**, chronological     |
 
-Example (real row, sample run):
+Example (first row of the full run, series truncated):
 
 ```text
-MAC000002	2012-10-12	Std	7.098	46	2	0.512	18	0.154304	0:0.11;1:0.13;...;47:0.09
+MAC000002	2012-10-12	Std	6.539	44	4	0.886	41	0.148614	3:0.0;4:0.0;...;41:0.886;...;47:0.325
 ```
+
+This row is the **local** day 2012-10-12 (UTC 2012-10-11 23:00 -> 2012-10-12 22:59),
+so it is not the same set of half-hours as the v1.0 UTC row
+`MAC000002,2012-10-12,7.098,46`.
 
 ### Missing versus zero
 
@@ -109,17 +113,19 @@ On a fall-back day the two physical half-hours that share a slot index are
 kept as **two entries** in `series` (same `slot`, different values). They are
 two distinct half-hours and must be summed by consumers, never merged.
 
-### Invariants (must hold on the full run)
+### Invariants (verified on the full run)
 
 | Invariant                    | Value                                                  |
 | ---------------------------- | ------------------------------------------------------ |
-| Sum of `total_kwh`           | 35,539,823.3 kWh (regrouping does not change the energy) |
+| Sum of `total_kwh`           | 35,539,823.307 kWh (identical to v1.0)                 |
 | Sum of `n_valid_slots`       | 167,811,461 (= 167,926,914 valid - 115,453 duplicates) |
 | Per row: `n_valid_slots`     | equals the number of pairs in `series`                 |
 | Per row: sum of `series`     | equals `total_kwh` (tolerance 0.001)                   |
 | Per row: `peak_kwh_hh`       | equals `max(series values)`                            |
 | Households present           | 5,561                                                  |
+| Rows                         | 3,510,463 (v1.0: 3,510,403; +60 from local-day regrouping) |
 | Date range                   | 2011-11-23 -> 2014-02-28 (local)                       |
+| Rows with a repeated slot    | 10,705 (fall-back days, 50 physical half-hours)        |
 
 ### Known anomalies (unchanged)
 

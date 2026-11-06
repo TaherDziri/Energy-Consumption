@@ -111,11 +111,56 @@ docker exec p08-namenode hadoop jar /job/job1-daily-consumption.jar \
 
 Note: no class name, the manifest provides `Main-Class`.
 
+### Measured full run (2026-11-06)
+
+| Metric | Value |
+|---|---|
+| Input | 8,551,075,774 bytes, 64 map splits |
+| Runtime | 683,471 ms (11 min 24 s): ~6.5 min map, ~4.8 min reduce |
+| Output | 1,643,062,284 bytes, one `part-r-00000` |
+| `readings_valid` | 167,926,914 |
+| `missing_null` | 5,560 |
+| `duplicate_rows_averaged` | 115,453 |
+| `malformed` / `negative` / `unknown_tariff` / `readings_off_grid` | 0 |
+| `tariff_conflict` / `days_more_than_expected` / `days_dropped_empty` | 0 |
+| `dst_days` (rows on a 46/50-slot local day) | 17,313 |
+
+### Validation on the full run
+
+`validate_mr1.py` on all 3,510,463 rows, baseline = the v1.0 output:
+
+| Check | Result |
+|---|---|
+| `errors` | **0** |
+| Rows | 3,510,463 (v1.0: 3,510,403; **+60** from regrouping UTC days into local days) |
+| Households | 5,561 (identical set) |
+| `sum(total_kwh)` | **35,539,823.307 kWh** (v1.0: 35,539,823.307, diff **0.000**) |
+| `sum(n_valid_slots)` | **167,811,461** (identical per household, no mismatch) |
+| `max_abs_household_total_diff` | **0.0 kWh** |
+| Max series length | 50 (fall-back day) |
+| Rows with a repeated slot index | 10,705 (fall-back days, both physical half-hours kept) |
+| DST distribution | 2012-03-25: 1,185 rows with 46 slots; 2012-10-28: 5,502 with 50; 2013-03-31: 5,399 with 46; 2013-10-27: 5,176 with 50 |
+
+Energy and valid slots are **exactly conserved**: the only difference with v1.0
+is the day attribution (UTC -> Europe/London), which moves 60 household-day
+boundaries. No row violates the contract.
+
+The single reducer shuffles the whole map output (the `series` column makes it
+~2 GB). On this 4 GB nodemanager the **first reduce attempt died in the shuffle
+with `OutOfMemoryError: Java heap space`**; Hadoop retried the reduce task and
+the second attempt succeeded. To avoid the retry, run with a larger reducer heap:
+
+```
+-D mapreduce.reduce.memory.mb=3072 \
+-D mapreduce.reduce.java.opts=-Xmx2560m \
+-D mapreduce.reduce.shuffle.input.buffer.percent=0.5
+```
+
 ### Validation (contract v1.1)
 
 ```
 python big-data/mapreduce/job1-daily/tools/validate_mr1.py \
-    --input <local copy of part-r-*> [--baseline data/processed/daily_consumption_v1.csv]
+    --input <local copy of part-r-*> [--baseline <local copy of the v1.0 CSV>]
 ```
 
 The validator checks every row (10 fields, slots, missing, sum(series)==total,
@@ -123,10 +168,10 @@ peak, repeated fall-back slots) and the aggregates, then prints a JSON summary.
 
 ## 8. Limitations
 
-- One-node cluster: at most ~3 concurrent mappers (4 GB YARN memory), so the
-  full run takes hours, dominated by the map phase.
+- One-node cluster: at most ~3 concurrent mappers (4 GB YARN memory); the full
+  run measured 11 min 24 s (see above), the map phase dominates.
 - Output is not globally sorted (single reducer, no secondary sort).
 - Days with zero readings do not appear in the output; consumers must handle
   gaps (`n_missing_slots > 0` is the in-row signal).
-- `series` is a text column: the full output is ~10x bigger than the v1.0 CSV.
-  Consumers that only need daily totals can read columns 1-9 only.
+- `series` is a text column: the full output is 1.64 GB, ~15x the 106 MB v1.0
+  CSV. Consumers that only need daily totals can read columns 1-9 only.
