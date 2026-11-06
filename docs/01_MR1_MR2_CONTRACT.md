@@ -20,7 +20,7 @@ décimales avec `.` (jamais de virgule), pas de séparateur de milliers.
 | 3 | `tariff_group` | texte | `Std` ou `ToU` |
 | 4 | `total_kwh` | décimal | somme des créneaux **observés** |
 | 5 | `n_valid_slots` | entier | nombre de créneaux observés |
-| 6 | `n_missing_slots` | entier | créneaux absents (48 − valides, hors DST) |
+| 6 | `n_missing_slots` | entier | `attendu(date) − n_valid_slots` ; attendu = 48, sauf 46 le 31/03/2013 et 50 le 27/10/2013 |
 | 7 | `peak_kwh_hh` | décimal | max d'un créneau, en **kWh/30 min** |
 | 8 | `peak_slot` | entier | indice du pic (0–47) |
 | 9 | `avg_valid_kwh_hh` | décimal | `total_kwh / n_valid_slots` |
@@ -31,11 +31,18 @@ décimales avec `.` (jamais de virgule), pas de séparateur de milliers.
 - Un créneau absent **n'apparaît pas** dans `series`. On n'écrit jamais
   `12:0` pour un manquant.
 - Un vrai zéro mesuré s'écrit `12:0.0`.
+- `slot = heure × 2 + minute / 30` (heure locale affichée). C'est la clé
+  de jointure `(date, slot)` avec le calendrier tarifaire : aucun
+  décalage n'est appliqué.
 - `avg_valid_kwh_hh = total_kwh / n_valid_slots`.
+- Le 31/03/2013 (passage à l'heure d'été), les créneaux `2` (01:00) et
+  `3` (01:30) n'existent pas → 46 créneaux, `n_missing_slots = 0`.
+- Le 27/10/2013 (retour à l'heure d'hiver), 01:00–01:59 existe deux fois
+  → 50 créneaux ; `series` peut donc contenir **deux fois le même slot**
+  (`2:0.4;2:0.5`). MR2 additionne les deux paires.
 - Si `n_valid_slots = 0` : `total_kwh = 0.0`, `peak_kwh_hh` et
-  `peak_slot` vides, `series` vide (cas à traiter par MR2).
-- Les jours de changement d'heure peuvent avoir 46/48/50 créneaux : la
-  série s'adapte, elle n'impose pas 48.
+  `peak_slot` vides, `series` vide. MR2 **ignore** cette ligne,
+  incrémente un compteur, et ne l'ajoute pas à `valid_days`.
 - MR2 ne doit jamais dépendre de l'ordre des lignes : le `shuffle`
   regroupe par clé.
 
@@ -132,3 +139,18 @@ Vérifications ciblées :
 - MR2 ne recalcule jamais les totaux journaliers : il fait confiance aux
   champs de MR1 et se concentre sur le mois, le pic, la couverture et le
   coût.
+
+## 9. Décisions figées v1.1 (2026-11-06)
+
+| # | Décision |
+|---|---|
+| 1 | `tariffs_2013_price.csv` a un en-tête ; MR2 ignore la ligne qui commence par `date,`. |
+| 2 | `price_coverage = créneaux tarifés / créneaux observés` (couverture du prix, pas des données). |
+| 3 | Coût = somme des créneaux tarifés si `pricedSlots > 0` ; `partial_tariff` si couverture < 1 ; couverture toujours écrite. |
+| 4 | Prix Std `14.228` p/kWh appliqué **seulement** aux dates du calendrier 2013 (plage configurable). |
+| 5 | Slot = heure affichée ×2 + minute/30 ; jointure `(date, slot)`, aucun décalage. |
+| 6 | MR2 ignore les lignes `n_valid_slots = 0` (compteur) ; elles ne comptent pas dans `valid_days`. |
+| 7 | Pas de Combiner en v1 ; sommes arrondies à 6 décimales ; comparaisons à `1e-6`. |
+| 8 | Prix Std = constante Java `14.228`, jamais lu depuis un CSV arrondi. |
+| 9 | Priorité : `no_data` > `no_tariff` > `partial_tariff` > `partial_data` > `ok`, + compteurs. |
+| 10 | `total_kwh` et `peak` = champs MR1 ; coût calculé depuis `series` ; écart > 0,001 → compteur. |
