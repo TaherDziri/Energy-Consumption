@@ -51,8 +51,9 @@ services:
       - "9000:9000"
     volumes:
       - p08-nn:/data
-      - "C:/Projet Big Data/P08-Energy-Consumption/data:/p08-data:ro"
-      - "C:/Projet Big Data/P08-Energy-Consumption/big-data/mapreduce/job1-daily/target:/job:ro"
+      # Chemins relatifs au fichier compose : identiques pour tous les membres.
+      - "../data:/p08-data:ro"
+      - "../big-data/mapreduce/job1-daily/target:/job:ro"
     mem_limit: 1536m
     restart: unless-stopped
 

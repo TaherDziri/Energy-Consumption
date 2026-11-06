@@ -1,6 +1,9 @@
 # data - never committed
 data/raw/
 data/processed/*.csv
+data/**/*.csv
+data/**/*.xlsx
+data/**/*.zip
 !data/processed/.gitkeep
 
 # build
