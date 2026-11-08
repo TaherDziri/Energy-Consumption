@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
 import java.util.Set;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -123,7 +124,7 @@ public class MonthlyMapper
         context.getCounter(GROUP, "priced_slots").increment(diag.pricedSlots);
         context.getCounter(GROUP, "unpriced_slots").increment(diag.unpricedSlots);
         context.getCounter(GROUP, "missing_slots_total").increment(nMissingSlots);
-        context.getCounter(GROUP, "dst_duplicate_slots").increment(diag.dstDuplicates);
+        context.getCounter(GROUP, "duplicate_slots").increment(diag.duplicateSlots);
         if (diag.slotCountMismatch) {
             context.getCounter(GROUP, "series_slot_mismatch").increment(1);
         }
@@ -186,14 +187,16 @@ public class MonthlyMapper
                 return null;
             }
 
-            // 0..49 : 50 est possible le 27/10/2013
-            if (slot < 0 || slot > 49 || kwh < 0.0 || Double.isNaN(kwh)) {
+            // 0..47 : en GMT, 48 creneaux par jour
+            if (slot < 0 || slot >= TariffCalendar.SLOTS_PER_DAY
+                    || kwh < 0.0 || Double.isNaN(kwh)) {
                 diag.seriesError = true;
                 return null;
             }
 
-            // Une liste de paires, jamais une Map : le 27/10 a deux fois le slot 2
-            if (!seenSlots.add(slot)) diag.dstDuplicates++;
+            // Liste de paires, jamais une Map : un doublon n'est pas ecrase.
+            // En GMT il ne devrait pas y en avoir ; on le compte quand meme.
+            if (!seenSlots.add(slot)) diag.duplicateSlots++;
             diag.pairs++;
             sumKwh += kwh;
             if (kwh > maxKwh) maxKwh = kwh;
@@ -244,7 +247,7 @@ public class MonthlyMapper
         long pairs;
         long pricedSlots;
         long unpricedSlots;
-        long dstDuplicates;
+        long duplicateSlots;
         double sum;
         double max;
         boolean seriesError;
@@ -256,7 +259,7 @@ public class MonthlyMapper
             pairs = 0;
             pricedSlots = 0;
             unpricedSlots = 0;
-            dstDuplicates = 0;
+            duplicateSlots = 0;
             sum = 0.0;
             max = 0.0;
             seriesError = false;

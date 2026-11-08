@@ -81,7 +81,7 @@ public final class MonthlyAggregationDriver {
         String[] names = {
             "lines_read", "lines_ok", "lines_malformed", "empty_day_skipped",
             "series_slot_mismatch", "series_mismatch", "peak_mismatch",
-            "dst_duplicate_slots", "priced_slots", "unpriced_slots",
+            "duplicate_slots", "priced_slots", "unpriced_slots",
             "missing_slots_total", "tariff_lines_loaded", "tariff_header_skipped",
             "flag_ok", "flag_partial_data", "flag_partial_tariff",
             "flag_no_tariff", "flag_no_data", "months_written"
@@ -116,7 +116,7 @@ public final class MonthlyAggregationDriver {
         }
         return args;
     }
-    
+
     /** -Dp08.run_id=... si fourni, sinon mr2-yyyyMMddTHHmmssZ en UTC. */
     static String resolveRunId(Configuration conf) {
         String provided = conf.get(CONF_RUN_ID);

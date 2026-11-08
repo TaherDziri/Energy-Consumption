@@ -51,11 +51,12 @@ public class TariffCalendarTest {
     }
 
     @Test
-    public void expectedSlotsFollowsTheLondonDst() {
+    public void expectedSlotsIsAlways48() {
+        // En GMT, aucun jour ne fait 23 h ni 25 h.
         assertEquals(48, TariffCalendar.expectedSlots("2013-03-01"));
-        assertEquals(46, TariffCalendar.expectedSlots("2013-03-31")); // passage a l'heure d'ete
+        assertEquals(48, TariffCalendar.expectedSlots("2013-03-31"));
         assertEquals(48, TariffCalendar.expectedSlots("2013-10-26"));
-        assertEquals(50, TariffCalendar.expectedSlots("2013-10-27")); // retour a l'heure d'hiver
+        assertEquals(48, TariffCalendar.expectedSlots("2013-10-27"));
         assertEquals(48, TariffCalendar.expectedSlots("2013-10-28"));
     }
 
@@ -67,12 +68,13 @@ public class TariffCalendarTest {
                 + "2013-03-01,x,Std,10.5\n"             // slot non entier
                 + "2013-03-01,2,Std,notanumber\n"       // prix non numerique
                 + "2013-13-01,3,Std,10.0\n"             // mois 13 invalide
+                + "2013-03-01,48,Std,10.0\n"            // slot 48 : impossible en GMT
                 + "2013-03-01,0,Std,99.9\n";            // doublon (date, slot)
 
         TariffCalendar cal = TariffCalendar.load(new StringReader(csv));
 
         assertEquals(1, cal.size());
-        assertEquals(4, cal.malformedLines());
+        assertEquals(5, cal.malformedLines());
         assertEquals(1, cal.duplicateRows());
         // La premiere valeur est conservee, pas la derniere.
         assertEquals(10.5, cal.pricePence("2013-03-01", 0), 1e-9);

@@ -3,9 +3,7 @@ package tn.isima.energy.job2;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.time.Duration;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,9 +13,10 @@ import java.util.Map;
  * Jointure : (date, slot) -> prix en pence/kWh.
  * Fichier attendu avec un en-tete exact : date,slot,tariff,price_pence
  *
- * Le calendrier contient 48 lignes par jour, y compris les jours de
- * changement d'heure. L'attendu d'un jour local (46/48/50) n'est donc
- * PAS le nombre de lignes du fichier : il est calcule depuis Europe/London.
+ * Les deux tables du dataset Low Carbon London sont indexees en GMT
+ * (guide officiel UK Data Service 7857) : le calendrier contient donc
+ * 48 lignes par jour, y compris le 31/03 et le 27/10. Un jour GMT fait
+ * toujours 24 h, donc l'attendu est toujours 48.
  */
 public final class TariffCalendar {
 
@@ -25,8 +24,8 @@ public final class TariffCalendar {
     public static final double STD_PRICE_PENCE = 14.228;
 
     private static final String HEADER = "date,slot,tariff,price_pence";
-    private static final ZoneId LONDON = ZoneId.of("Europe/London");
-    private static final int SLOT_SECONDS = 30 * 60;
+    /** Un jour GMT fait 24 h, soit 48 creneaux de 30 min. */
+    public static final int SLOTS_PER_DAY = 48;
 
     // Cle "date|slot" -> prix en pence/kWh
     private final Map<String, Double> priceByKey = new HashMap<>();
@@ -80,8 +79,8 @@ public final class TariffCalendar {
                 continue;
             }
 
-            // slot 0..49 (50 possible le jour du retour a l'heure d'hiver)
-            if (slot < 0 || slot > 49 || price < 0.0 || Double.isNaN(price)) {
+            // slot 0..47 : en GMT il y a exactement 48 creneaux par jour
+            if (slot < 0 || slot >= SLOTS_PER_DAY || price < 0.0 || Double.isNaN(price)) {
                 cal.malformedLines++;
                 continue;
             }
@@ -119,22 +118,17 @@ public final class TariffCalendar {
                 && date.compareTo(maxDate) <= 0;
     }
 
-    // ---------- attendu d'un jour local ----------
+    // ---------- attendu d'un jour GMT ----------
 
     /**
-     * Nombre de creneaux de 30 min dans ce jour local Europe/London.
-     * 48 normal, 46 le 31/03/2013 (23 h), 50 le 27/10/2013 (25 h).
-     * A ne pas confondre avec le nombre de lignes du calendrier (toujours 48).
+     * Nombre de creneaux attendus pour ce jour : toujours 48.
+     * Consommation et tarifs sont tous deux en GMT, donc aucun jour
+     * ne fait 23 h ni 25 h. La methode existe pour que le contrat
+     * MR1 -> MR2 n'ait qu'une seule definition de l'attendu.
      */
     public static int expectedSlots(String date) {
-        return expectedSlots(LocalDate.parse(date));
-    }
-
-    public static int expectedSlots(LocalDate date) {
-        long seconds = Duration.between(
-                date.atStartOfDay(LONDON),
-                date.plusDays(1).atStartOfDay(LONDON)).getSeconds();
-        return (int) (seconds / SLOT_SECONDS);
+        LocalDate.parse(date);          // valide le format YYYY-MM-DD
+        return SLOTS_PER_DAY;
     }
 
     // ---------- diagnostic ----------

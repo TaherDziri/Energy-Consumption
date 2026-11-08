@@ -83,7 +83,7 @@ public class MonthlyMapperTest {
     }
 
     @Test
-    public void duplicatedSlotIsCountedNotMerged() throws IOException {
+    public void duplicatePairIsCountedNotMerged() throws IOException {
         TariffCalendar cal = calendarFor("2013-10-27,2,Normal,11.76");
         MonthlyMapper.Diagnostics diag = new MonthlyMapper.Diagnostics();
 
@@ -93,7 +93,7 @@ public class MonthlyMapperTest {
 
         assertNotNull(m);
         assertEquals(3, m.getObservedSlots());     // 3 paires, pas 2 slots
-        assertEquals(1, diag.dstDuplicates);       // slot 2 vu deux fois
+        assertEquals(1, diag.duplicateSlots);       // slot 2 vu deux fois
         assertEquals(1.0, diag.sum, 1e-12);
         assertEquals(2, m.getPricedSlots());       // les deux paires du slot 2
         assertEquals(1, diag.unpricedSlots);       // slot 3 absent du calendrier
