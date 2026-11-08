@@ -1,6 +1,6 @@
 # MR2 — Conception détaillée
 
-**Version :** 1.1 — 2026-11-06
+**Version :** 1.3 — 2026-11-06, révisée le 2026-11-09 (tout en GMT)
 **Auteure :** Rahma (Personne 2)
 **Référence :** `ideep08.pdf` §8.2, tests T05 et T06
 
@@ -45,7 +45,7 @@ Un créneau absent n'apparaît **pas** dans `series`.
 ## 3. Entrée 2 — calendrier tarifaire enrichi
 
 Fichier `tariffs_2013_price.csv`, séparé par virgules, **avec en-tête**.
-Le Mapper ignore la première ligne (elle commence par `date,`) :
+Le Mapper ignore **exactement** la première ligne `date,slot,tariff,price_pence` (pas toute ligne commençant par `date`) :
 
 ```
 date,slot,tariff,price_pence
@@ -79,8 +79,9 @@ Un prix n'est appliqué que si **la date existe dans le calendrier**
 On ne projette **jamais** les tarifs 2013 sur 2012 ou 2014.
 
 Pour un foyer `Std`, le prix plat 14,228 s'applique lui aussi uniquement
-aux dates présentes dans le calendrier. C'est une décision d'équipe
-conservatrice, conforme au T06.
+aux dates du calendrier. Une seule source de vérité : l'intersection
+avec la plage min/max du calendrier, sans seconde plage codée en dur.
+Décision conservatrice conforme au T06.
 
 ## 4. Mapper
 
@@ -118,11 +119,11 @@ Traitement d'une ligne :
    - `sum(series) ≈ total_kwh` (tolérance 0,001) ;
    - `max(series) == peak_kwh_hh`.
 
-**Convention de slot.** `slot = heure × 2 + minute / 30`, heure locale
-affichée. La jointure est `(date, slot)`. Aucun décalage les jours de
-changement d'heure : le 27/10/2013, `series` peut contenir deux paires
-de même slot (01:00–01:59 existe deux fois) ; MR2 les additionne, elles
-ont le même prix.
+**Convention de slot.** `slot = heure × 2 + minute / 30`, **heure GMT**.
+MR1 écrit directement les `DateTime` GMT (vérifié le 2026-11-06) ; les
+deux tables sont sur la même échelle, donc la jointure `(date, slot)`
+est exacte. Chaque jour fait **48** créneaux, y compris le 31/03 et le
+27/10. Un slot `48` ou `49` est invalide : compté, jamais tarifé.
 
 Une ligne mal formée est **comptée** et ignorée : elle ne fabrique
 jamais de valeurs.
@@ -204,17 +205,20 @@ Ordre de priorité (le premier vrai gagne) :
 exact. `partial_data` signifie : tous les créneaux observés sont
 tarifés, mais il manque des mesures.
 
+`no_data` reste défensif : avec la décision 6, une clé sans aucune ligne
+valide n'est jamais créée.
+
 ### Changement d'heure
 
-Convention figée : `slot = heure × 2 + minute / 30`, heure locale
-affichée, jointure `(date, slot)`, aucun décalage.
+Sans objet : tout est en GMT. Les `DateTime` bruts **et** le calendrier
+tarifaire sont horodatés en GMT (guide officiel UK Data Service, doc
+`7857`), donc un jour fait toujours 24 h.
 
-- 31/03/2013 : 46 créneaux (01:00 et 01:30 n'existent pas) ;
-  `n_missing_slots = 0`.
-- 27/10/2013 : 50 créneaux ; `series` contient deux fois les slots
-  01:00–01:59. MR2 additionne les deux paires (même prix).
-
-La convention complète relève de MR1 et est documentée dans le contrat.
+- 31/03/2013 : 48 créneaux ; `01:00` et `01:30` sont présents, ils
+  n'existent qu'en GMT et pas en heure locale — c'est la preuve du fuseau.
+- 27/10/2013 : 48 créneaux ; le doublon `00:00` (`0.181` deux fois) est
+  une lecture dupliquée du dataset, moyennée par MR1.
+- Aucun décalage, aucun créneau dupliqué attendu.
 
 ### Priorité et cumul
 
@@ -262,7 +266,7 @@ colonne coût.
 | `series_slot_mismatch` | nombre de paires de `series` ≠ `n_valid_slots` |
 | `series_mismatch` | `|Σ series − total_kwh| > 0.001` |
 | `peak_mismatch` | `max(series)` ≠ `peak_kwh_hh` |
-| `dst_duplicate_slots` | slots répétés dans `series` (27/10/2013) |
+| `duplicate_slots` | paires de slot dupliquées dans `series` (ne devrait jamais arriver en GMT : signale un bug MR1) |
 | `priced_slots` | créneaux observés avec un prix |
 | `unpriced_slots` | créneaux observés sans prix |
 | `missing_slots_total` | `Σ n_missing_slots` |
@@ -278,25 +282,26 @@ colonne coût.
 ## 11. Limites assumées
 
 - Le calendrier officiel ne couvre que 2013 : 2012 et 2014 ont un coût
-  NULL, même pour les foyers Std. Choix prudent aligné sur T06, plage
-  configurable.
+  NULL, même pour les foyers Std. Choix prudent aligné sur T06 ; la
+  plage vient du min/max du calendrier, sans seconde config.
 - Le coût est une **estimation d'exercice** (hors taxes et frais).
-- Les jours de DST suivent la convention `slot = heure × 2 + minute / 30` :
-  46 créneaux le 31/03/2013, 50 le 27/10/2013 (deux fois 01:00–01:59).
+- Tout est en GMT : consommation et calendrier tarifaire. Chaque jour a
+  48 créneaux, y compris le 31/03 et le 27/10 ; aucune conversion n'est
+  faite par MR1 ni par MR2.
 - Aucune réidentification : `household_id` reste le `LCLid`
   pseudonymisé du dataset.
 
-## 12. Décisions figées v1.1 (2026-11-06)
+## 12. Décisions figées v1.3 (2026-11-06, révisé le 2026-11-09)
 
 | # | Décision |
 |---|---|
-| 1 | `tariffs_2013_price.csv` a un en-tête ; MR2 ignore la ligne qui commence par `date,`. |
+| 1 | `tariffs_2013_price.csv` a un en-tête ; MR2 ignore **exactement** la ligne `date,slot,tariff,price_pence` (pas toute ligne commençant par `date`). |
 | 2 | `price_coverage = créneaux tarifés / créneaux observés` (couverture du prix, pas des données). |
 | 3 | Coût = somme des créneaux tarifés si `pricedSlots > 0` ; `partial_tariff` si couverture < 1 ; couverture toujours écrite. |
-| 4 | Prix Std `14.228` p/kWh appliqué **seulement** aux dates du calendrier 2013 (plage configurable). |
-| 5 | Slot = heure affichée ×2 + minute/30 ; jointure `(date, slot)`, aucun décalage. |
-| 6 | MR2 ignore les lignes `n_valid_slots = 0` (compteur) ; elles ne comptent pas dans `valid_days`. |
+| 4 | Prix Std `14.228` p/kWh appliqué **seulement** aux dates du calendrier 2013. Une seule source de vérité : l'intersection avec la plage min/max du calendrier, pas une seconde plage codée en dur. |
+| 5 | Consommation **et** calendrier tarifaire sont en GMT (guide officiel UK Data Service 7857). MR1 écrit `slot = heure GMT ×2 + minute/30` sans conversion ; MR2 joint `(date, slot)` sur la même échelle. Chaque jour fait 48 créneaux, y compris le 31/03 et le 27/10. |
+| 6 | MR2 ignore les lignes `n_valid_slots = 0` (compteur) ; elles ne comptent pas dans `valid_days`. `n_missing_slots = attendu(date) - n_valid_slots`, avec **attendu = 48** (jour GMT de 24 h, tous les jours de l'année). |
 | 7 | Pas de Combiner en v1 ; sommes arrondies à 6 décimales ; comparaisons à `1e-6`. |
 | 8 | Prix Std = constante Java `14.228`, jamais lu depuis un CSV arrondi. |
-| 9 | Priorité : `no_data` > `no_tariff` > `partial_tariff` > `partial_data` > `ok`, + compteurs. |
+| 9 | Priorité : `no_data` > `no_tariff` > `partial_tariff` > `partial_data` > `ok`, + compteurs. `no_data` reste défensif : avec la décision 6, il est presque inatteignable. |
 | 10 | `total_kwh` et `peak` = champs MR1 ; coût calculé depuis `series` ; écart > 0,001 → compteur. |

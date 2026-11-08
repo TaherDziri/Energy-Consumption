@@ -47,7 +47,7 @@ no header, UTF-8, LF, decimal separator `.`:
 | 3 | `tariff_group` | string | `Std` or `ToU`, from the source column |
 | 4 | `total_kwh` | decimal | unchanged (sum of deduplicated values) |
 | 5 | `n_valid_slots` | integer | distinct timestamps that day (currently `reading_count`) |
-| 6 | `n_missing_slots` | integer | `48 - n_valid_slots` on ordinary days; DST convention documented |
+| 6 | `n_missing_slots` | integer | `48 - n_valid_slots` — every day is 24 h because timestamps are GMT |
 | 7 | `peak_kwh_hh` | decimal | max deduplicated slot value |
 | 8 | `peak_slot` | integer | slot index 0–47 of the peak |
 | 9 | `avg_valid_kwh_hh` | decimal | `total_kwh / n_valid_slots` |
@@ -71,7 +71,8 @@ deduplicated value per timestamp. To produce the new fields you only need:
    `stdorToU` is already present).
 2. `series`: iterate the accumulator's timestamps and emit `slot:value`.
 3. `peak`: max over the deduplicated values; `peak_slot` = its slot index.
-4. `n_missing_slots`: `48 - distinctReadings()` (with the DST note).
+4. `n_missing_slots`: `48 - distinctReadings()`. Keep everything in GMT,
+   do not convert to Europe/London (see §8).
 
 No change to the duplicate-averaging rule, no change to the daily total.
 
@@ -121,7 +122,33 @@ Please confirm:
 
 - [ ] Option A (replace output) or Option B (second output path)
 - [ ] `tariff_group` source: `stdorToU` column
-- [ ] DST convention for `n_missing_slots`
-- [ ] Version bump of `docs/data-contract.md` to v1.1
+- [x] Time zone: everything stays in **GMT**, no conversion (see §8)
+- [ ] Version bump of `docs/data-contract.md` to v1.3
 
-Once confirmed, Job 2 can be developed against the frozen v1.1 contract.
+Once confirmed, Job 2 can be developed against the frozen v1.3 contract.
+
+## 8. Fuseau horaire : rester en GMT (vérifié le 2026-11-06)
+
+Les `DateTime` bruts **et** le calendrier tarifaire sont en **GMT**
+(heure standard toute l'année). Aucune conversion n'est à faire.
+
+Preuves :
+
+- guide officiel du dataset (UK Data Service, doc `7857`) : consommation
+  et `tariff_d.csv` sont horodatés *"in the GMT time-zone"* ;
+- `grep -c '2013-03-31 01:00:00'` sur `sample_5households.csv` → **5**
+  (les 5 foyers) : `01:00` existe, or il n'existe pas en heure locale ;
+- 31/03/2013 : 48 timestamps uniques, journée de 24 h complète ;
+- le calendrier tarifaire contient 48 lignes le 31/03 **et** le 27/10.
+
+MR1 doit donc :
+
+1. moyenner les doublons `(household_id, DateTime)` (règle 3 du data
+   contract) ;
+2. calculer `date` et `slot = heure ×2 + minute/30` **en GMT**, sans
+   `ZoneId` ;
+3. écrire `n_missing_slots = 48 − n_valid_slots`.
+
+Ne **pas** convertir en Europe/London : le calendrier tarifaire est en
+GMT, donc convertir la consommation seule décalerait tous les prix de
+2 créneaux pendant le BST (≈ 7 mois de l'année).
