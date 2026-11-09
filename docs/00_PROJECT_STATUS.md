@@ -315,6 +315,27 @@ attendre MR1 v1.1. **Jeu fabriqué, pas des mesures réelles.**
   ces temps ne préjugent pas du dataset complet. La mesure réelle reste
   bloquée par MR1 v1.1 (10 colonnes).
 
+  
+### Étape 15 — smoke test Iceberg (2026-11-09)
+
+- Compatibilité vérifiée : Java 1.8.0_212, Hadoop 3.3.6, réseau Docker `p08_default`.
+- Spark 3.5.1 (Scala 2.12) + `iceberg-spark-runtime-3.5_2.12:1.5.2`, catalogue
+  `local` (type `hadoop`), warehouse `hdfs://namenode:9000/p08/warehouse`.
+- Table `local.db.t1 (id INT, label STRING) USING iceberg` créée via `spark-sql`.
+- `INSERT` de 3 lignes, `SELECT` = `1 a`, `2 b`, `3 c`.
+- **1 snapshot** `append`, `snapshot_id = 1496640063262222205`.
+- Méta HDFS : `v1.metadata.json` (CREATE), `v2.metadata.json` (après INSERT),
+  `version-hint.text = 2` ; données = 3 fichiers Parquet (~600 o chacun).
+- Incidents sans effet : cache Ivy `/home/spark/.ivy2` non inscriptible →
+  corrigé par `--conf spark.jars.ivy=/tmp/.ivy2` ; `findstr` inexistant
+  dans le conteneur (commande Windows).
+- Limite : 3 petits fichiers Parquet (1 par tâche). Un ingestion réel devra
+  viser des fichiers ≈128 Mo.
+- Ce que Spark/Iceberg apportent : table, ACID, snapshots, évolution de
+  schéma sur HDFS. MapReduce (MR1/MR2) écrit des CSV bruts, sans transaction
+  ni snapshot.
+
+
 ## 7. Ce qui reste
 
 - [x] Vérifier le jeu de test dans `/p08/test/mr1_daily`
