@@ -55,10 +55,11 @@ date,slot,tariff,price_pence
 ```
 
 - 17 520 lignes de données + 1 en-tête = 17 521 lignes, **2013 uniquement**.
-- 365 jours × 48 créneaux, y compris les jours de changement d'heure.
-- `slot` est l'indice du créneau dans la journée locale (0–47), dans
-  l'ordre du tableur officiel.
-- Table de prix (documentation officielle, `phase1_summary.md`) :
+- 365 jours × 48 créneaux, y compris le 31/03 et le 27/10.
+- `slot` est l'indice du créneau dans la journée (0–47), dans l'ordre du
+  tableur officiel.
+- Table de prix (valeurs codées dans `scripts/convert_tariffs.py`,
+  reprises de `phase1_summary.md` ; **à vérifier** au §2.2 du guide) :
 
 | Groupe | Signal | Prix (p/kWh) |
 |---|---|---|
@@ -66,6 +67,11 @@ date,slot,tariff,price_pence
 | ToU | Normal | 11.76 |
 | ToU | Low | 3.99 |
 | Std | tarif plat | 14.228 |
+
+> **Prix Low à vérifier.** Le guide (§2.2) donne £0.0390/kWh, tandis que
+> data.gov.uk et la présentation Ofgem donnent 3.99 p/kWh. Le code
+> utilise 3.99. `Tariffs.xlsx` ne contient aucun prix : seul
+> `tariff_d.csv` (colonne `Price`) peut trancher.
 
 ### Règle d'application
 
@@ -210,15 +216,35 @@ valide n'est jamais créée.
 
 ### Changement d'heure
 
-Sans objet : tout est en GMT. Les `DateTime` bruts **et** le calendrier
-tarifaire sont horodatés en GMT (guide officiel UK Data Service, doc
-`7857`), donc un jour fait toujours 24 h.
+Aucun décalage n'est appliqué : l'hypothèse de travail est que la
+consommation et le calendrier tarifaire sont tous deux en GMT. Le guide
+officiel UK Data Service SN 7857 annonce les tables `consumption_d.csv`,
+`consumption_n.csv` et `tariff_d.csv` en GMT, avec des horodatages « en
+fin de période » — **citation exacte à recopier depuis le PDF, §3.3
+« Structure », table `tariff_d.csv`** (non vérifiée à ce jour).
+
+> **Hypothèse non vérifiée n°1 — fuseau du calendrier réel.**
+> MR2 ne lit pas `tariff_d.csv` mais `tariffs_2013_price.csv`, dérivé de
+> `data/Tariffs.xlsx` (`TariffDateTime`, `Tariff`). Rien dans le dépôt ne
+> prouve que ce classeur reproduit `tariff_d.csv` (mêmes horodatages,
+> même fuseau). Les 48 lignes/jour viennent d'une grille naïve
+> 00:00–23:30 : ce n'est pas une preuve de fuseau.
+
+> **Hypothèse non vérifiée n°2 — début ou fin de période.**
+> Le guide décrit des horodatages « en fin de période » ; la grille de
+> `Tariffs.xlsx` commence à 00:00. Si les deux conventions diffèrent, la
+> jointure `(date, slot)` décale chaque prix d'un créneau (30 min) et
+> fausse uniquement le coût ToU. Vérification : premier/dernier libellé
+> de `tariff_d.csv` (00:30→00:00 = fin ; 00:00→23:30 = début) et
+> libellé de la première ligne High du 19/01/2013.
 
 - 31/03/2013 : 48 créneaux ; `01:00` et `01:30` sont présents, ils
-  n'existent qu'en GMT et pas en heure locale — c'est la preuve du fuseau.
+  n'existent qu'en heure standard — preuve d'absence de trou DST dans
+  les données de consommation.
 - 27/10/2013 : 48 créneaux ; le doublon `00:00` (`0.181` deux fois) est
   une lecture dupliquée du dataset, moyennée par MR1.
-- Aucun décalage, aucun créneau dupliqué attendu.
+- Tant que les deux hypothèses ci-dessus ne sont pas levées, les coûts
+  ToU sont des **estimations non validées**.
 
 ### Priorité et cumul
 
@@ -299,7 +325,7 @@ colonne coût.
 | 2 | `price_coverage = créneaux tarifés / créneaux observés` (couverture du prix, pas des données). |
 | 3 | Coût = somme des créneaux tarifés si `pricedSlots > 0` ; `partial_tariff` si couverture < 1 ; couverture toujours écrite. |
 | 4 | Prix Std `14.228` p/kWh appliqué **seulement** aux dates du calendrier 2013. Une seule source de vérité : l'intersection avec la plage min/max du calendrier, pas une seconde plage codée en dur. |
-| 5 | Consommation **et** calendrier tarifaire sont en GMT (guide officiel UK Data Service 7857). MR1 écrit `slot = heure GMT ×2 + minute/30` sans conversion ; MR2 joint `(date, slot)` sur la même échelle. Chaque jour fait 48 créneaux, y compris le 31/03 et le 27/10. |
+| 5 | Hypothèse de travail : `DateTime` bruts **et** calendrier tarifaire en GMT, aucune conversion ; MR2 joint `(date, slot)` sur la même échelle. Chaque jour fait 48 créneaux. **Non vérifié** pour le fichier réel (`Tariffs.xlsx`) : fuseau et convention début/fin de période, voir « Changement d'heure ». |
 | 6 | MR2 ignore les lignes `n_valid_slots = 0` (compteur) ; elles ne comptent pas dans `valid_days`. `n_missing_slots = attendu(date) - n_valid_slots`, avec **attendu = 48** (jour GMT de 24 h, tous les jours de l'année). |
 | 7 | Pas de Combiner en v1 ; sommes arrondies à 6 décimales ; comparaisons à `1e-6`. |
 | 8 | Prix Std = constante Java `14.228`, jamais lu depuis un CSV arrondi. |

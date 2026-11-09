@@ -127,19 +127,31 @@ Please confirm:
 
 Once confirmed, Job 2 can be developed against the frozen v1.3 contract.
 
-## 8. Fuseau horaire : rester en GMT (vérifié le 2026-11-06)
+## 8. Fuseau horaire : hypothèse de travail GMT (2026-11-06, révisé le 2026-11-09)
 
-Les `DateTime` bruts **et** le calendrier tarifaire sont en **GMT**
-(heure standard toute l'année). Aucune conversion n'est à faire.
+**Hypothèse de travail :** les `DateTime` bruts **et** le calendrier
+tarifaire sont en **GMT** (heure standard toute l'année). Aucune
+conversion n'est à faire. Cette hypothèse reste **à vérifier** : la
+citation du guide officiel n'a pas encore été relue dans le PDF.
 
-Preuves :
+Éléments connus :
 
-- guide officiel du dataset (UK Data Service, doc `7857`) : consommation
-  et `tariff_d.csv` sont horodatés *"in the GMT time-zone"* ;
+- guide officiel du dataset (UK Data Service, SN 7857, §3.3
+  « Structure ») : les tables `consumption_*.csv` et `tariff_d.csv`
+  seraient horodatées « GMT » et « en fin de période » — **citation
+  exacte à recopier depuis le PDF, non vérifiée à ce jour** ;
 - `grep -c '2013-03-31 01:00:00'` sur `sample_5households.csv` → **5**
-  (les 5 foyers) : `01:00` existe, or il n'existe pas en heure locale ;
+  (les 5 foyers) : `01:00` existe → **pas de trou DST** dans la
+  consommation ; cela ne prouve pas le fuseau du calendrier tarifaire ;
 - 31/03/2013 : 48 timestamps uniques, journée de 24 h complète ;
-- le calendrier tarifaire contient 48 lignes le 31/03 **et** le 27/10.
+- le calendrier tarifaire contient 48 lignes le 31/03 **et** le 27/10,
+  mais c'est une grille naïve 00:00–23:30 : **non probant** pour le
+  fuseau ni pour la convention début/fin de période.
+
+> **Non vérifié :** la provenance du calendrier réellement chargé
+> (`tariffs_2013_price.csv`, dérivé de `data/Tariffs.xlsx`) depuis
+> `tariff_d.csv` n'est pas documentée. Voir `01_MR1_MR2_CONTRACT.md` §10
+> et `03_MR2_DESIGN.md` « Changement d'heure ».
 
 MR1 doit donc :
 
@@ -149,6 +161,6 @@ MR1 doit donc :
    `ZoneId` ;
 3. écrire `n_missing_slots = 48 − n_valid_slots`.
 
-Ne **pas** convertir en Europe/London : le calendrier tarifaire est en
-GMT, donc convertir la consommation seule décalerait tous les prix de
-2 créneaux pendant le BST (≈ 7 mois de l'année).
+Ne **pas** convertir en Europe/London : sous l'hypothèse GMT ci-dessus,
+convertir la consommation seule décalerait tous les prix de 2 créneaux
+pendant le BST (≈ 7 mois de l'année).

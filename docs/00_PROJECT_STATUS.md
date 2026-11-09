@@ -107,6 +107,9 @@ jamais polluer les sorties de production.
 - 17 520 lignes, **2013 uniquement**, 48 créneaux/jour, 365 jours.
 - Niveaux : Normal 15 072 (86,0 %), Low 1 660 (9,5 %), High 788 (4,5 %).
 - Prix : High 67,20 p/kWh, Normal 11,76, Low 3,99 ; Std plat 14,228.
+  **À vérifier** : ces pences ne figurent pas dans `Tariffs.xlsx`, elles
+  sont codées dans `scripts/convert_tariffs.py`. Le guide (§2.2) donne
+  Low = £0,0390 ; seul `tariff_d.csv` (colonne `Price`) peut trancher.
 - SHA-256 : `323C00C043BB8334477B38B3D6CA69230A7F82C7DABCC6C55EC2BB810B179804`.
 - **Table enrichie générée** par `scripts/convert_tariffs.py` :
   `data/tariffs_2013_price.csv` = `date,slot,tariff,price_pence`,
@@ -188,21 +191,28 @@ Points de vigilance retenus : `series` est une **liste de paires**
 `no_data` reste défensif ; les 19 compteurs du groupe `P08_MR2` sont
 listés dans `03_MR2_DESIGN.md` §10.
 
-### Étape 5 — fuseau horaire vérifié (2026-11-06)
+### Étape 5 — fuseau horaire : hypothèse GMT (2026-11-06, révisé le 2026-11-09)
 
 Commandes exécutées sur `/p08/raw/meters/sample_5households.csv`,
 foyer `MAC000002` :
 
 | Contrôle | Résultat | Conclusion |
 |---|---|---|
-| `grep -c '2013-03-31 01:00:00'` | **5** lignes (les 5 foyers) | données en **GMT** (pas en heure locale) |
+| `grep -c '2013-03-31 01:00:00'` | **5** lignes (les 5 foyers) | pas de trou DST → compatible avec GMT, ne prouve pas le fuseau |
 | 31/03/2013, journée | 48 timestamps uniques | journée de 24 h complète |
 | 27/10/2013 `00:00` | 2 lignes, `0.181` identique | doublon exact du dataset, moyenné par MR1 |
-| Calendrier 31/03 et 27/10 | 48 et 48 | calendrier indexé en GMT |
+| Calendrier 31/03 et 27/10 | 48 et 48 | cohérent, **non probant** : grille naïve 00:00–23:30 |
 
-**Conséquence :** MR1 moyenne les doublons et écrit `date`/`series`
-**en GMT**, sans conversion. MR2 ne convertit rien non plus. Détail dans
-`02_JOB1_EXTENSION_REQUEST.md` §8.
+> **Hypothèses non vérifiées.** Le guide officiel (SN 7857, §3.3) est
+> cité de seconde main : la phrase exacte sur le fuseau et la fin de
+> période doit être recopiée depuis le PDF. La provenance GMT du
+> calendrier réel (`Tariffs.xlsx` → `tariffs_2013_price.csv`) et sa
+> convention début/fin de période ne sont pas documentées. Voir
+> `01_MR1_MR2_CONTRACT.md` §10 et `03_MR2_DESIGN.md`.
+
+**Conséquence :** sous cette hypothèse, MR1 moyenne les doublons et
+écrit `date`/`series` **en GMT**, sans conversion. MR2 ne convertit rien
+non plus. Détail dans `02_JOB1_EXTENSION_REQUEST.md` §8.
 
 ### MR1 (binôme) — état au 2026-11-06
 

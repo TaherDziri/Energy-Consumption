@@ -32,19 +32,21 @@ décimales avec `.` (jamais de virgule), pas de séparateur de milliers.
   `12:0` pour un manquant.
 - Un vrai zéro mesuré s'écrit `12:0.0`.
 - `slot = heure × 2 + minute / 30` (**heure GMT**). C'est la clé de
-  jointure `(date, slot)` avec le calendrier tarifaire : les deux tables
-  sont en GMT, aucun décalage n'est appliqué.
+  jointure `(date, slot)` avec le calendrier tarifaire ; l'absence de
+  décalage repose sur l'hypothèse GMT décrite ci-dessous et au §10.
 - `avg_valid_kwh_hh = total_kwh / n_valid_slots`.
-- **Fuseau : tout en GMT (vérifié les 2026-11-06 et 2026-11-09).**
-  Le guide officiel du dataset (UK Data Service, `7857_userguide.pdf`)
-  indique que les deux tables — consommation **et** `tariff_d.csv` —
-  sont horodatées *"in the GMT time-zone"*.
+- **Fuseau : hypothèse de travail = tout en GMT.**
+  Le guide officiel du dataset (UK Data Service, `7857_userguide.pdf`,
+  §3.3 « Structure ») annonce les tables `consumption_*.csv` et
+  `tariff_d.csv` en GMT et « en fin de période » : **citation exacte à
+  recopier depuis le PDF** (non vérifiée à ce jour).
 - Preuves mesurées sur `/p08/raw/meters/sample_5households.csv` :
   - `grep -c '2013-03-31 01:00:00'` → **5** (les 5 foyers) : `01:00`
-    existe, or il n'existe pas en heure locale → GMT ;
+    existe, or il n'existe pas en heure locale → pas de trou DST ;
   - 31/03/2013 : **48** timestamps uniques, journée de 24 h complète ;
-  - le calendrier tarifaire contient **48** lignes le 31/03 **et** le
-    27/10 : il est indexé en GMT (un calendrier local aurait 46 et 50).
+  - **à ne pas utiliser comme preuve de fuseau :** le calendrier
+    contient 48 lignes le 31/03 et le 27/10, mais c'est une grille naïve
+    00:00–23:30 (voir §10).
 - **Conséquences :**
   - MR1 **ne convertit rien** : `date` et `slot` sont calculés en GMT,
     directement depuis les `DateTime` ;
@@ -165,7 +167,7 @@ Vérifications ciblées :
 | 2 | `price_coverage = créneaux tarifés / créneaux observés` (couverture du prix, pas des données). |
 | 3 | Coût = somme des créneaux tarifés si `pricedSlots > 0` ; `partial_tariff` si couverture < 1 ; couverture toujours écrite. |
 | 4 | Prix Std `14.228` p/kWh appliqué **seulement** aux dates du calendrier 2013. Une seule source de vérité : l'intersection avec la plage min/max du calendrier, pas une seconde plage codée en dur. |
-| 5 | `DateTime` bruts **et** calendrier tarifaire en GMT. MR1 écrit `slot = heure GMT ×2 + minute/30` sans conversion ; MR2 joint `(date, slot)` sur la même échelle. Chaque jour fait 48 créneaux, y compris le 31/03 et le 27/10. |
+| 5 | Hypothèse de travail : `DateTime` bruts **et** calendrier tarifaire en GMT, sans conversion ; MR2 joint `(date, slot)`. Chaque jour fait 48 créneaux. **Non vérifié** pour le fichier réel (`Tariffs.xlsx`) : fuseau et début/fin de période, voir §10. |
 | 6 | MR2 ignore les lignes `n_valid_slots = 0` (compteur) ; elles ne comptent pas dans `valid_days`. `n_missing_slots = attendu(date) − n_valid_slots`, avec **attendu = 48**. |
 | 7 | Pas de Combiner en v1 ; sommes arrondies à 6 décimales ; comparaisons à `1e-6`. |
 | 8 | Prix Std = constante Java `14.228`, jamais lu depuis un CSV arrondi. |
@@ -180,15 +182,26 @@ Foyer `MAC000002`, fichier `/p08/raw/meters/sample_5households.csv` :
 |---|---|---|
 | 31/03/2013, `01:00:00` | `grep -c` → **5** lignes (les 5 foyers) | **GMT**, pas heure locale |
 | 31/03/2013, journée | 48 timestamps uniques | journée de 24 h complète |
-| 27/10/2013, `00:00:00` | 2 lignes, valeur `0.181` identique | **GMT** + une lecture dupliquée |
+| 27/10/2013, `00:00:00` | 2 lignes, valeur `0.181` identique | compatible GMT + une lecture dupliquée |
 | En-tête tarifs | `date,slot,tariff,price_pence` | 1 en-tête |
-| Calendrier 31/03 / 27/10 | **48 / 48** lignes | calendrier indexé en GMT (46/50 si local) |
+| Calendrier 31/03 / 27/10 | **48 / 48** lignes | cohérent avec GMT, mais non probant : grille naïve 00:00–23:30 |
 
-Source officielle : guide du dataset Low Carbon London (UK Data Service,
-doc `7857`), qui décrit consommation et tarifs comme horodatés
-*"in the GMT time-zone"*.
+Source à citer : guide du dataset Low Carbon London (UK Data Service,
+SN 7857). Ouvrir le PDF, §3.3 « Structure », tables `consumption_d.csv`
+et `tariff_d.csv`, et recopier la phrase exacte sur le fuseau et la fin
+de période. **Cette citation n'a pas encore été vérifiée dans le
+document lui-même.**
 
-→ Aucune conversion de fuseau, ni dans MR1 ni dans MR2. L'attendu vaut
-**48** partout et le `slot` reste dans `0..47`.
+> **Hypothèses non vérifiées.** Le calendrier réellement chargé est
+> `tariffs_2013_price.csv`, dérivé de `data/Tariffs.xlsx` ; sa provenance
+> depuis `tariff_d.csv` (horodatages, fuseau) et sa convention de libellé
+> (début ou fin de période) ne sont pas documentées. Les 48 lignes/jour
+> sont une grille naïve 00:00–23:30, pas une preuve. Un décalage d'un
+> créneau affecterait le **coût ToU** uniquement (pas kWh, pic, couverture
+> ni flags).
+
+→ Aucune conversion de fuseau n'est appliquée, ni dans MR1 ni dans MR2.
+L'attendu vaut **48** partout et le `slot` reste dans `0..47`, sous
+réserve des deux hypothèses ci-dessus.
 
 Voir §3 et §9 décision 5.
