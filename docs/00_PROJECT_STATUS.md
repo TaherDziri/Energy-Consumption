@@ -315,7 +315,7 @@ attendre MR1 v1.1. **Jeu fabriqué, pas des mesures réelles.**
   ces temps ne préjugent pas du dataset complet. La mesure réelle reste
   bloquée par MR1 v1.1 (10 colonnes).
 
-  
+
 ### Étape 15 — smoke test Iceberg (2026-11-09)
 
 - Compatibilité vérifiée : Java 1.8.0_212, Hadoop 3.3.6, réseau Docker `p08_default`.
@@ -335,6 +335,25 @@ attendre MR1 v1.1. **Jeu fabriqué, pas des mesures réelles.**
   schéma sur HDFS. MapReduce (MR1/MR2) écrit des CSV bruts, sans transaction
   ni snapshot.
 
+### Étape 16 — MR2 → Iceberg → SQL (2026-11-09)
+
+- Chargement de la sortie MR2 **synthétique**
+  (`/p08/gold/mr2_monthly_synth`, 5 000 lignes) dans
+  `local.db.mr2_monthly` (Iceberg, catalogue `hadoop`, warehouse
+  `hdfs://namenode:9000/p08/warehouse`) via vue CSV temporaire (10 champs).
+- Requêtes :
+  - `count(*) = 5000`
+  - `sum(monthly_kwh) = 9 300 000.0` (= 5 000 × 1 860)
+  - `sum(estimated_cost_gbp) = 1 254 266.9999999888` → **≈ 1 254 267,00 £**
+    (dérive d'arrondi flottant sur 5 000 doubles, pas un bug)
+  - `quality_flag` : `ok = 5000`
+  - 3 lignes témoins : `SYN000001…`, `1860.0`, `250.8534`,
+    `mr2-20261109T004516Z`
+- **1 snapshot** `append` (`6569157221866874837`).
+- Chaîne complète démontrée : HDFS → MR2 (CSV) → Iceberg (table ACID) →
+  SQL. **Volume synthétique** : ne représente pas le dataset réel.
+- Limite : table non partitionnée (`partition-specs: []`) → scan complet.
+  Candidat : `PARTITIONED BY (month)`.
 
 ## 7. Ce qui reste
 
