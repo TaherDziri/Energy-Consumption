@@ -114,6 +114,28 @@ public class MonthlyMapperTest {
         assertTrue(diag.slotCountMismatch);        // 2 paires contre 47 annoncees
         assertTrue(diag.sumMismatch);              // 2.0 contre 9.9
         assertTrue(diag.peakMismatch);             // 1.0 contre 5.0
+        assertFalse(diag.missingSlotsMismatch);    // 47 + 1 = 48
+    }
+
+    @Test
+    public void missingSlotsMismatchIsCountedNotFatal() throws IOException {
+        TariffCalendar cal = calendarFor("2013-03-01,0,Normal,11.76");
+        MonthlyMapper.Diagnostics diag = new MonthlyMapper.Diagnostics();
+
+        DailyMetrics m = MonthlyMapper.buildMetrics(
+                "2013-03-01", "Std", 1.0, 47, 0, 1.0,
+                "0:1.0", cal, diag);
+
+        assertNotNull(m);                          // la ligne est conservee
+        assertTrue(diag.missingSlotsMismatch);     // 47 + 0 != 48
+
+        diag.reset();
+        m = MonthlyMapper.buildMetrics(
+                "2013-03-01", "Std", 1.0, 47, 1, 1.0,
+                "0:1.0", cal, diag);
+
+        assertNotNull(m);
+        assertFalse(diag.missingSlotsMismatch);    // 47 + 1 == 48
     }
 
     @Test

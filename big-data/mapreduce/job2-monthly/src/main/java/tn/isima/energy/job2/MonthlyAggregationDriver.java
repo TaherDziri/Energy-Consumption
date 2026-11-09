@@ -82,7 +82,8 @@ public final class MonthlyAggregationDriver {
             "lines_read", "lines_ok", "lines_malformed", "empty_day_skipped",
             "series_slot_mismatch", "series_mismatch", "peak_mismatch",
             "duplicate_slots", "priced_slots", "unpriced_slots",
-            "missing_slots_total", "tariff_lines_loaded", "tariff_header_skipped",
+            "missing_slots_total", "missing_slots_mismatch",
+            "tariff_lines_loaded", "tariff_header_skipped",
             "flag_ok", "flag_partial_data", "flag_partial_tariff",
             "flag_no_tariff", "flag_no_data", "months_written"
         };

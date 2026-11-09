@@ -13,10 +13,11 @@ import java.util.Map;
  * Jointure : (date, slot) -> prix en pence/kWh.
  * Fichier attendu avec un en-tete exact : date,slot,tariff,price_pence
  *
- * Les deux tables du dataset Low Carbon London sont indexees en GMT
- * (guide officiel UK Data Service 7857) : le calendrier contient donc
- * 48 lignes par jour, y compris le 31/03 et le 27/10. Un jour GMT fait
- * toujours 24 h, donc l'attendu est toujours 48.
+ * Hypothese de travail : les deux tables du dataset Low Carbon London
+ * sont indexees en GMT (guide officiel UK Data Service 7857, a
+ * verifier). Le calendrier contient donc 48 lignes par jour, y compris
+ * le 31/03 et le 27/10. Un jour GMT fait toujours 24 h, donc l'attendu
+ * est toujours 48.
  */
 public final class TariffCalendar {
 

@@ -272,6 +272,36 @@ Calcul du coût : `46.3 × 14.228 / 100 = 6.587564 £`.
 couverture 0, coût NULL. Le test échoue si un `0.0` apparaît dans la
 colonne coût.
 
+### T07 — ToU 19/01/2013, calcul manuel (2026-11-09)
+
+Fixture HDFS `/p08/test/mr1_daily/toU_test.tsv` : un jour `MAC000002`,
+`2013-01-19`, `ToU`, 48 paires ; 12 créneaux (34–45) à 2,0 kWh, les
+36 autres à 1,0 kWh → **60 kWh**.
+
+| Signal | Créneaux | Prix (p) | Calcul |
+|---|---|---|---|
+| Normal | 10 | 11,76 | 10 × 1,0 × 11,76 = 117,60 |
+| Low | 26 | 3,99 | 26 × 1,0 × 3,99 = 103,74 |
+| High | 12 | 67,20 | 12 × 2,0 × 67,20 = 1612,80 |
+
+Total = 1834,14 p = **18,341400 £**.
+
+Sortie observée :
+
+```
+MAC000002,2013-01,ToU,60.000000,18.341400,1.000000,2.000000,1,ok,mr2-20261109T003444Z
+```
+
+Compteurs observés : `priced_slots=48`, `unpriced_slots=0`,
+`missing_slots_total=0`, `duplicate_slots=0`, `flag_ok=1`,
+`tariff_lines_loaded=17520`, `tariff_header_skipped=1`,
+`Combine input records=0`. (`missing_slots_mismatch` n'existait pas
+encore dans ce run ; attendu `0` au prochain passage.)
+
+Réserve : ce test valide la chaîne de calcul et la jointure
+`(date, slot)`, **pas** le fuseau ni la convention début/fin de période
+(voir « Changement d'heure »).
+
 ### Tests unitaires (JUnit)
 
 - `DailyMetricsTest` : sérialisation `Writable` aller-retour.
@@ -296,6 +326,7 @@ colonne coût.
 | `priced_slots` | créneaux observés avec un prix |
 | `unpriced_slots` | créneaux observés sans prix |
 | `missing_slots_total` | `Σ n_missing_slots` |
+| `missing_slots_mismatch` | lignes où `n_valid_slots + n_missing_slots ≠ 48` (incohérence MR1, non bloquant) |
 | `tariff_lines_loaded` | lignes tarifaires chargées |
 | `tariff_header_skipped` | en-tête ignoré (0 ou 1) |
 | `flag_ok` | mois écrits avec `ok` |
@@ -311,9 +342,10 @@ colonne coût.
   NULL, même pour les foyers Std. Choix prudent aligné sur T06 ; la
   plage vient du min/max du calendrier, sans seconde config.
 - Le coût est une **estimation d'exercice** (hors taxes et frais).
-- Tout est en GMT : consommation et calendrier tarifaire. Chaque jour a
-  48 créneaux, y compris le 31/03 et le 27/10 ; aucune conversion n'est
-  faite par MR1 ni par MR2.
+- Hypothèse de travail : tout est en GMT (consommation et calendrier
+  tarifaire). Chaque jour a 48 créneaux, y compris le 31/03 et le 27/10 ;
+  aucune conversion n'est faite par MR1 ni par MR2. Voir les réserves de
+  la section « Changement d'heure ».
 - Aucune réidentification : `household_id` reste le `LCLid`
   pseudonymisé du dataset.
 

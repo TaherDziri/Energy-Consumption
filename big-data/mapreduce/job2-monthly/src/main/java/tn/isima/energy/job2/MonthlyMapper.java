@@ -22,7 +22,8 @@ import org.apache.hadoop.mapreduce.Mapper;
  *   valeur = DailyMetrics du jour
  *
  * Le calendrier tarifaire est charge une seule fois, dans setup().
- * Aucune conversion de fuseau ici : MR1 a deja ecrit des slots locaux.
+ * Aucune conversion de fuseau ici : MR1 a deja ecrit des slots en GMT
+ * (hypothese de travail, voir docs/03 "Changement d'heure").
  */
 public class MonthlyMapper
         extends Mapper<LongWritable, Text, HouseholdMonthKey, DailyMetrics> {
@@ -124,6 +125,9 @@ public class MonthlyMapper
         context.getCounter(GROUP, "priced_slots").increment(diag.pricedSlots);
         context.getCounter(GROUP, "unpriced_slots").increment(diag.unpricedSlots);
         context.getCounter(GROUP, "missing_slots_total").increment(nMissingSlots);
+        if (diag.missingSlotsMismatch) {
+            context.getCounter(GROUP, "missing_slots_mismatch").increment(1);
+        }
         context.getCounter(GROUP, "duplicate_slots").increment(diag.duplicateSlots);
         if (diag.slotCountMismatch) {
             context.getCounter(GROUP, "series_slot_mismatch").increment(1);
@@ -238,6 +242,9 @@ public class MonthlyMapper
         diag.slotCountMismatch = (diag.pairs != nValidSlots);
         diag.sumMismatch       = Math.abs(sumKwh - totalKwh) > SUM_TOLERANCE;
         diag.peakMismatch      = Math.abs(maxKwh - peakKwhHh) > PEAK_TOLERANCE;
+        // Option A : coherence interne de la ligne MR1, sans la rejeter.
+        diag.missingSlotsMismatch =
+                (nValidSlots + nMissingSlots != TariffCalendar.expectedSlots(date));
 
         return m;
     }
@@ -254,6 +261,7 @@ public class MonthlyMapper
         boolean slotCountMismatch;
         boolean sumMismatch;
         boolean peakMismatch;
+        boolean missingSlotsMismatch;
 
         void reset() {
             pairs = 0;
@@ -266,6 +274,7 @@ public class MonthlyMapper
             slotCountMismatch = false;
             sumMismatch = false;
             peakMismatch = false;
+            missingSlotsMismatch = false;
         }
     }
 }

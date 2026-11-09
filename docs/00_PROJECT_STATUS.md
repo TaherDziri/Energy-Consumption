@@ -188,7 +188,7 @@ Les 10 décisions sont écrites dans `01_MR1_MR2_CONTRACT.md` §9 et
 
 Points de vigilance retenus : `series` est une **liste de paires**
 (jamais une `Map<slot,kwh>`, sinon un doublon écrase une mesure) ;
-`no_data` reste défensif ; les 19 compteurs du groupe `P08_MR2` sont
+`no_data` reste défensif ; les 20 compteurs du groupe `P08_MR2` sont
 listés dans `03_MR2_DESIGN.md` §10.
 
 ### Étape 5 — fuseau horaire : hypothèse GMT (2026-11-06, révisé le 2026-11-09)
@@ -242,7 +242,7 @@ non plus. Détail dans `02_JOB1_EXTENSION_REQUEST.md` §8.
 
 ### Étape 6 — MR2 codé, testé, exécuté (2026-11-09)
 
-- **Tests JUnit :** 26 tests / 6 classes, `mvn clean test` = `BUILD SUCCESS`.
+- **Tests JUnit :** 27 tests / 6 classes, `mvn clean test` = `BUILD SUCCESS`.
 - **Exécution cluster** sur `/p08/test/mr1_daily/mr1_test.tsv` :
   `JOB2 STATUS = SUCCESS`, 2 lignes écrites.
 - **Résultats identiques aux calculs manuels :**
@@ -259,8 +259,32 @@ non plus. Détail dans `02_JOB1_EXTENSION_REQUEST.md` §8.
   (confirme l'absence de Combiner).
 - **Réalignement GMT :** sortie identique après refactor (aucun décalage
   de prix sur ce jeu de test).
-- **Reste à faire :** exercer réellement le calendrier ToU — le jeu de
-  test est `Std`, donc `pricePence` n'a jamais été appelé sur le cluster.
+- **Reste à faire :** exercer réellement le calendrier ToU — fait à
+  l'étape 13 ci-dessous.
+
+### Étape 13 — test ToU 19/01/2013 (2026-11-09)
+
+- Fixture HDFS `/p08/test/mr1_daily/toU_test.tsv` : 1 jour, 48 paires,
+  60 kWh (12 créneaux à 2,0 kWh, 36 à 1,0 kWh), sans fichier local dans
+  le dépôt.
+- Prix du 19/01 vérifiés dans HDFS : **10 Normal (11,76)**, **26 Low
+  (3,99)**, **12 High (67,20)**, 48 lignes au total.
+- Calcul manuel : `117,60 + 103,74 + 1612,80 = 1834,14 p` =
+  **18,341400 £**.
+- Sortie réelle :
+
+  ```
+  MAC000002,2013-01,ToU,60.000000,18.341400,1.000000,2.000000,1,ok,mr2-20261109T003444Z
+  ```
+
+- Compteurs : `priced_slots=48`, `unpriced_slots=0`,
+  `missing_slots_total=0`, `duplicate_slots=0`, `flag_ok=1`,
+  `tariff_lines_loaded=17520`, `tariff_header_skipped=1`,
+  `Combine input records=0`.
+- **Validé :** jointure `(date, slot)` et calcul ToU sur le cluster.
+  **Non validé :** fuseau et convention début/fin de période (étape 5).
+- **Option A ajoutée après ce run :** compteur non bloquant
+  `missing_slots_mismatch` (20 compteurs). À confirmer au prochain run.
 
 ## 7. Ce qui reste
 
@@ -271,7 +295,8 @@ non plus. Détail dans `02_JOB1_EXTENSION_REQUEST.md` §8.
 - [x] Vérifier le fuseau horaire des données brutes (GMT confirmé)
 - [x] Écrire `HouseholdMonthKey` + `DailyMetrics` (Writable / WritableComparable)
 - [x] Écrire `TariffCalendar`, Mapper, Reducer, Driver (sans Combiner)
-- [x] Tests JUnit (26/26) + exécution sur `/p08/test/mr1_daily` (T05/T06)
+- [x] Tests JUnit (27/27) + exécution sur `/p08/test/mr1_daily` (T05–T07)
+- [x] Test ToU réel 19/01/2013 (60 kWh, 18,341400 £) + option A
 - [ ] Normalisation raw → `silver/half_hourly` (F02)
 - [ ] MR1 Java v1.1 (binôme) + tests T02–T04
 - [ ] **MR2 Java + tests T05–T06 sur données réelles** (bloqué : MR1 v1.1 10 colonnes)
@@ -287,7 +312,7 @@ non plus. Détail dans `02_JOB1_EXTENSION_REQUEST.md` §8.
 | Branche | `solo-Rahma` |
 | MR1 | codé par Taher ; contrat figé par Rahma |
 | Contrat / design MR2 | version **1.3**, 10 décisions figées le 2026-11-06, révisées le 2026-11-09 |
-| Fuseau horaire | tout en **GMT** (consommation et tarifs) ; aucune conversion |
+| Fuseau horaire | **hypothèse de travail** : tout en GMT ; aucune conversion (non vérifiée, voir étape 5) |
 | Coût Std | appliqué seulement si la date est dans le calendrier 2013 |
 | 2012 | coût **NULL** (hors calendrier), jamais 0 |
 | Combiner | absent en v1 ; ajout seulement après T05/T06 |
