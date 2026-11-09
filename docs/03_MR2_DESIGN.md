@@ -296,11 +296,28 @@ Compteurs observés : `priced_slots=48`, `unpriced_slots=0`,
 `missing_slots_total=0`, `duplicate_slots=0`, `flag_ok=1`,
 `tariff_lines_loaded=17520`, `tariff_header_skipped=1`,
 `Combine input records=0`. (`missing_slots_mismatch` n'existait pas
-encore dans ce run ; attendu `0` au prochain passage.)
+encore dans ce run ; confirmé `0` au rerun `mr2-20261109T004004Z`.)
 
 Réserve : ce test valide la chaîne de calcul et la jointure
 `(date, slot)`, **pas** le fuseau ni la convention début/fin de période
 (voir « Changement d'heure »).
+
+### T08 — montée en charge synthétique (2026-11-09)
+
+Entrée fabriquée `synthetic_155k.tsv` : 5 000 foyers × 31 jours de
+janvier 2013 = 155 000 lignes (55,1 Mo), découpage 16 Mo → 4 mappers.
+
+| Mesure | Valeur |
+|---|---|
+| `elapsed_ms` | `49 541` (≈ 49,5 s) |
+| `lines_read` / `lines_ok` | `155 000` / `155 000` |
+| `priced_slots` | `7 440 000` (= 155 000 × 48) |
+| `tariff_lines_loaded` | `70 080` (= 4 × 17 520, un chargement par mapper) |
+| Sortie | `5 000` lignes, toutes `ok`, coût `250.853400` |
+
+Ce test mesure la chaîne et les temps, **pas** la justesse des données
+réelles : jeu **synthétique**, cluster Docker mono-nœud. Voir
+`00_PROJECT_STATUS.md` étape 14.
 
 ### Tests unitaires (JUnit)
 

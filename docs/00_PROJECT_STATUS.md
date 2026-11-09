@@ -284,7 +284,36 @@ non plus. Détail dans `02_JOB1_EXTENSION_REQUEST.md` §8.
 - **Validé :** jointure `(date, slot)` et calcul ToU sur le cluster.
   **Non validé :** fuseau et convention début/fin de période (étape 5).
 - **Option A ajoutée après ce run :** compteur non bloquant
-  `missing_slots_mismatch` (20 compteurs). À confirmer au prochain run.
+  `missing_slots_mismatch`, confirmé `0` au rerun de contrôle
+  (`mr2-20261109T004004Z`, sortie identique, 20 compteurs).
+
+### Étape 14 — montée en charge synthétique (2026-11-09)
+
+Objectif : mesurer MR2 sur un volume supérieur aux fixtures, sans
+attendre MR1 v1.1. **Jeu fabriqué, pas des mesures réelles.**
+
+- Entrée : `/p08/test/mr1_daily/synthetic_155k.tsv`, **55,1 Mo**,
+  **155 000 lignes** = 5 000 foyers (`SYN000001`…`SYN005000`) × 31 jours
+  de janvier 2013, 48 paires/jour, 60 kWh/jour.
+- Découpage forcé à 16 Mo → **4 mappers**, **1 reducer**.
+- Sortie : **5 000 lignes**, 439,5 Ko, `mr2-20261109T004516Z`.
+- **Temps driver : `elapsed_ms = 49 541`** (≈ 49,5 s).
+- Compteurs : `lines_read=155000`, `lines_ok=155000`,
+  `priced_slots=7 440 000` (= 155 000 × 48), `unpriced_slots=0`,
+  `missing_slots_total=0`, `missing_slots_mismatch=0`,
+  `duplicate_slots=0`, `flag_ok=5 000`, `months_written=5 000`,
+  `Combine input records=0`.
+- `tariff_lines_loaded=70 080` = 4 × 17 520 et
+  `tariff_header_skipped=4` : le calendrier est rechargé **une fois par
+  mapper** (DistributedCache), comportement attendu.
+- **Vérification indépendante :** toutes les lignes ont
+  `monthly_kwh=1860.000000` (31 × 60), `estimated_cost_gbp=250.853400`,
+  `price_coverage=1.000000`, `peak=2.000000`, `valid_days=31`, `ok`.
+  Le coût a été recalculé depuis le CSV tarifaire local, dont le MD5 est
+  identique à celui de HDFS (`09a0e546…`).
+- **Limites :** jeu synthétique et cluster Docker mono-nœud à 4 mappers ;
+  ces temps ne préjugent pas du dataset complet. La mesure réelle reste
+  bloquée par MR1 v1.1 (10 colonnes).
 
 ## 7. Ce qui reste
 
@@ -297,6 +326,7 @@ non plus. Détail dans `02_JOB1_EXTENSION_REQUEST.md` §8.
 - [x] Écrire `TariffCalendar`, Mapper, Reducer, Driver (sans Combiner)
 - [x] Tests JUnit (27/27) + exécution sur `/p08/test/mr1_daily` (T05–T07)
 - [x] Test ToU réel 19/01/2013 (60 kWh, 18,341400 £) + option A
+- [x] Étape 14 : montée en charge synthétique (155 k lignes, 4 mappers, 49,5 s)
 - [ ] Normalisation raw → `silver/half_hourly` (F02)
 - [ ] MR1 Java v1.1 (binôme) + tests T02–T04
 - [ ] **MR2 Java + tests T05–T06 sur données réelles** (bloqué : MR1 v1.1 10 colonnes)
