@@ -380,6 +380,37 @@ attendre MR1 v1.1. **Jeu fabriqué, pas des mesures réelles.**
   Git (`git check-ignore` renvoie `.gitignore:7`).
 - Script reproductible versionné : `scripts/prepare_dl_sample.py`.
 
+### Étape 18 — fenêtres 48 h → 1 h et baselines naïves (2026-11-09)
+
+- Construction : fenêtre gardée seulement si les **48 entrées + la cible**
+  sont présentes et les **49 heures consécutives** ; aucune imputation.
+- Sortie : **75 257 fenêtres** (`X (75 257, 48)`), `train 48 162`,
+  `val 13 670`, `test 13 425`, **0 NaN** — MAC000002 11 818,
+  MAC000003 17 528, MAC000004 15 682, MAC000006 18 006, MAC000007 12 223.
+- Normalisation **z-score par foyer**, `mean`/`std` **fittés sur `train`
+  seulement** (`scalers.csv`), appliqués tels quels à `val`/`test` (aucune
+  fuite). Dénormalisation vérifiée à la main : `X[-1] = 0,205 kWh` et
+  `y = 0,897 kWh` = valeurs réelles.
+- Artefacts **hors Git** : `windows_48to1.npz` (884 Ko),
+  `windows_48to1_meta.parquet` (276 Ko), `scalers.csv`.
+- Bogue corrigé : `np.savez_compressed` stockait `LCLid`/`split`/
+  `target_hour` en tableaux *object* (pickle) → rechargement impossible
+  avec `allow_pickle=False`. Converti en `str` / `datetime64[ns]`.
+
+**Baselines naïves (kWh réels, aucun entraînement)**
+
+| Modèle | Split | n | MAE | RMSE |
+|---|---|---|---|---|
+| persistance (t-1) | test | 13 425 | 0,2160 | 0,4872 |
+| saisonnier (t-24) | test | 13 425 | **0,2021** | **0,4697** |
+| moyenne train | test | 13 425 | 0,3396 | 0,6235 |
+
+- Sur `train` : persistance 0,2138 / saisonnier 0,1695 / moyenne 0,3144.
+- Le **saisonnier 24 h** est la meilleure référence sur les 3 splits :
+  c'est le plancher que le GRU doit battre.
+- `test` = novembre 2013 → février 2014 (**hiver**) : la baseline
+  « moyenne train » est structurellement pessimiste, ce n'est pas un bug.
+
 ## 7. Ce qui reste
 
 - [x] Vérifier le jeu de test dans `/p08/test/mr1_daily`
@@ -399,7 +430,8 @@ attendre MR1 v1.1. **Jeu fabriqué, pas des mesures réelles.**
 - [ ] MR1 Java v1.1 (binôme) + tests T02–T04
 - [ ] **MR2 Java + tests T05–T06 sur données réelles** (bloqué : MR1 v1.1 10 colonnes)
 - [x] Tables Iceberg + Spark SQL (volume synthétique)
-- [ ] Fenêtres 48 h → 1 h + dataset DL final
+- [x] Fenêtres 48 h → 1 h (échantillon) + baselines naïves (`scripts/baseline.py`)
+- [ ] GRU (plancher à battre : saisonnier 24 h, MAE test **0,2021**)
 - [ ] GRU + Autoencoder
 - [ ] Dashboard + rapport + soutenance
 
