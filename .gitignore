@@ -4,6 +4,7 @@ data/processed/*.csv
 data/**/*.csv
 data/**/*.xlsx
 data/**/*.zip
+data/**/*.parquet
 !data/processed/.gitkeep
 
 # build

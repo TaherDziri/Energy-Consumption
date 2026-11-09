@@ -355,22 +355,51 @@ attendre MR1 v1.1. **Jeu fabriqué, pas des mesures réelles.**
 - Limite : table non partitionnée (`partition-specs: []`) → scan complet.
   Candidat : `PARTITIONED BY (month)`.
 
+### Étape 17 — préparation DL sur échantillon (2026-11-09)
+
+- Source : `data/sample/sample_5households.csv`, **5 foyers Std**,
+  152 811 lignes, 2012-01-30 → 2014-02-28, 4 colonnes.
+- Nettoyage : **105 doublons** `(LCLid, DateTime)` **moyennés** →
+  152 706 demi-heures ; **5** valeurs `kwh` NaN à l'origine ;
+  **26 229** valeurs `kwh == 0` **conservées** (mesures réelles, pas des trous).
+- Passage horaire : convention **timestamp = fin de période** (1re ligne 00:30),
+  `resample('1h', closed='right', label='right')` ; une heure n'est retenue
+  que si **2 demi-heures valides**, sinon **NaN** (jamais un demi-total).
+- Résultat : **76 418 heures**, **76 NaN**, `kwh_total = 28 411,222 kWh`.
+- Split **temporel** sur les dates : `train` 2012-01-30 → 2013-07-15
+  (49 078), `val` → 2013-11-06 (13 670), `test` → 2014-02-28 (13 670).
+  Volumes non 70/15/15 exactement : couverture historique inégale des foyers.
+- Sortie : `data/processed/dl/sample_hourly.parquet` (~415 Ko), **hors Git**.
+- **Aucun entraînement** effectué. Risque identifié : PyTorch sous
+  Python 3.14 (non vérifié) → prévoir un venv Python 3.11/3.12.
+- Vérification indépendante de la convention horaire : le 2013-01-01,
+  `kwh(hour_end 01:00) = 0,432 = kwh(00:30) 0,241 + kwh(01:00) 0,191` ;
+  idem 02:00 (0,417) et 03:00 (0,423). Le créneau brut 00:00 appartient
+  à l'heure 00:00, donc à la veille.
+- `.gitignore` complété (`data/**/*.parquet`) : le Parquet est bien hors
+  Git (`git check-ignore` renvoie `.gitignore:7`).
+- Script reproductible versionné : `scripts/prepare_dl_sample.py`.
+
 ## 7. Ce qui reste
 
 - [x] Vérifier le jeu de test dans `/p08/test/mr1_daily`
 - [x] Enrichir le fichier tarifaire (`price_pence`) et l'uploader dans HDFS
 - [x] Vérifier versions Hadoop/Java + build Maven (`validate`, `compile`)
 - [x] Figer les décisions MR2 v1.2 (contrat + design)
-- [x] Vérifier le fuseau horaire des données brutes (GMT confirmé)
+- [x] Fuseau des données brutes : **hypothèse GMT** (aucun trou DST
+  observé, fuseau tarifaire non prouvé)
 - [x] Écrire `HouseholdMonthKey` + `DailyMetrics` (Writable / WritableComparable)
 - [x] Écrire `TariffCalendar`, Mapper, Reducer, Driver (sans Combiner)
 - [x] Tests JUnit (27/27) + exécution sur `/p08/test/mr1_daily` (T05–T07)
 - [x] Test ToU réel 19/01/2013 (60 kWh, 18,341400 £) + option A
 - [x] Étape 14 : montée en charge synthétique (155 k lignes, 4 mappers, 49,5 s)
+- [x] Étapes 15–16 : Iceberg sur HDFS + SQL sur volume synthétique
+- [x] Étape 17 : préparation DL échantillon (horaire + split temporel, sans entraînement)
 - [ ] Normalisation raw → `silver/half_hourly` (F02)
 - [ ] MR1 Java v1.1 (binôme) + tests T02–T04
 - [ ] **MR2 Java + tests T05–T06 sur données réelles** (bloqué : MR1 v1.1 10 colonnes)
-- [ ] Tables Iceberg + Spark SQL
+- [x] Tables Iceberg + Spark SQL (volume synthétique)
+- [ ] Fenêtres 48 h → 1 h + dataset DL final
 - [ ] GRU + Autoencoder
 - [ ] Dashboard + rapport + soutenance
 
