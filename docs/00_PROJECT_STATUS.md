@@ -411,6 +411,82 @@ attendre MR1 v1.1. **Jeu fabriqué, pas des mesures réelles.**
 - `test` = novembre 2013 → février 2014 (**hiver**) : la baseline
   « moyenne train » est structurellement pessimiste, ce n'est pas un bug.
 
+
+### Étape 19 — GRU 48 h → 24 h (2026-11-09 / 11-10)
+
+- Tâche : prédire **24 h** à partir de **48 h** (72 h consécutives, 0 NaN,
+  un seul split temporel). Sorties : `X (74 041, 48)`, `Y (74 041, 24)`,
+  `train 47 771` / `val 13 315` / `test 12 955`.
+- Baselines 24 h, test (kWh) : persistance 0,3960 / 0,8419 —
+  **saisonnier 0,2014 / 0,4710** — moyenne train 0,3413 / 0,6286.
+- Deux runs **val-only** : `runA_l1` (L1, sans calendrier) val MAE
+  **0,1206** ; `runB_l1cal` val MAE 0,1231 → `runA_l1` retenu.
+- Test lu **une seule fois** : MAE **0,1980** vs 0,2014, RMSE **0,4425**
+  vs 0,4710. GRU meilleur sur **15 / 24** horizons (h = 1–5 et 15–24).
+- Limites déclarées : les deux runs s'arrêtent à l'epoch 40 (budget), donc
+  VAL est optimiste ; dégradation val→test **1,64×** contre **1,47×** pour
+  le saisonnier → le gain de 12 % sur VAL ne se transfère qu'à 1,7 %.
+  Un premier run MSE avait déjà vu le test avant la création du journal :
+  c'est déclaré comme un **second regard global**, pas comme un protocole
+  vierge.
+- Journal : `data/processed/dl/test_seen.json` (n_test 12 955,
+  hash `eb401abb29f4a656`, commit `a35e723`).
+
+### Étape 20 — MR2 → Iceberg `lh.p08.monthly` (2026-11-10)
+
+- Catalog `lh` type `hadoop`, warehouse `hdfs://namenode:9000/p08/warehouse`,
+  table `PARTITIONED BY (dataset_version)`.
+- 2 INSERT : `test-contract-mr2` (2 lignes — 2012-03 `cost` **NULL**,
+  2013-03 `6,587564`) et `tou-test-mr2` (1 ligne, 60,0 kWh, `18,3414`).
+- **2 snapshots `append`** (`5432148918239810490` +2,
+  `3866664282499896418` +1), `version-hint.text = 3`,
+  `v1/v2/v3.metadata.json`, **2 partitions physiques** `dataset_version=…`.
+- Coût inconnu relu comme **NULL**, jamais 0.
+
+### Étape 21 — MR1 (4 colonnes) → Iceberg `lh.p08.daily` (2026-11-10)
+
+- Job 1 rejoué sur l'échantillon 5 foyers : `SUCCESS`,
+  `Reduce output records = 3 191` ; compteurs `readings_valid 152 806`,
+  `duplicate_rows_averaged 105`, `missing_null 5`, `header_skipped 1`,
+  `days_more_than_48 0`, `elapsed_ms 21 782`.
+- `lh.p08.daily` : **3 191 lignes**, 5 foyers, 2012-01-30 → 2014-02-28,
+  total **28 416,517 kWh**, `3 161 ok` + `30 partial_data`, `n_slots 1..48`,
+  `peak_kwh_hh / peak_slot / tariff_group` **NULL par construction**
+  (MR1 v1 = 4 colonnes).
+- 1 snapshot `append` (`1262258339771469827`), `version-hint.text = 2`.
+- **Réconciliation exacte** avec le CSV brut :
+  `28 448,701 − 32,184 = 28 416,517`, soit **−0,113 %**. Les 105 groupes de
+  doublons ont des valeurs identiques des deux côtés : c'est la règle
+  anti-double-comptage, pas un bug d'agrégation.
+- Bogue corrigé : `date_format(..., 'yyyyMMddTHHmmss')` →
+  `Unknown pattern letter: T` sous Spark 3.5 → `'yyyyMMdd_HHmmss'`.
+
+### Étape 22 — Autoencodeur jour 24 h : résultat négatif (2026-11-10)
+
+- `scripts/autoencoder_day.py` : AE 24→16→8→16→24, z-score par foyer,
+  seed 42, CPU. Jours retenus **3 153** (`train 2 028` / `val 565` /
+  `test 560`) : les 38 jours écartés sont incomplets (< 24 h valides) ou à
+  cheval sur deux splits.
+- Meilleur modèle : epoch **129**, val MSE(z) **0,20324**. Erreurs VAL en
+  kWh/h : P50 0,0728 — P90 0,2049 — **P95 0,2338** (= 5,61 kWh/jour) —
+  P99 0,3158 — max 0,4156. Seuil enregistré = **P95 des erreurs VAL**.
+- Sensibilité du seuil (VAL seulement) et comparaison de 4 scores : la
+  détection d'une hausse de +50 % **baisse** quand le percentile monte
+  (29,2 % à P90 → 8,1 % à P99,5) ; à 1 % de fausses alertes le meilleur
+  score (`top6_h`) atteint **12,4 %**.
+- **Règle pré-enregistrée** : lire le test une seule fois seulement si la
+  détection à 1 % FA est ≥ 40 %. **12,4 % < 40 % → test non lu**,
+  `test_seen.json` ne contient aucune entrée `autoencoder_day`.
+- Explication : +50 % d'une journée moyenne vaut **0,142 kWh/h**, soit
+  **moins** que l'erreur d'un jour sain à P90 (0,205). Le score **classe**
+  les anomalies (lift ≈ 10×) mais ne les **sépare** pas.
+- **Angle mort** : `zeros_kwh` détecté à **0 %** quel que soit le score.
+  Une coupure produit une ligne plate, donc facile à reconstruire. Un score
+  de reconstruction détecte « ce que je ne sais pas redessiner », pas « une
+  consommation anormalement basse » → règle de niveau (`total_kwh ≈ 0`) à
+  ajouter, et **anomalie ≠ fraude**.
+
+
 ## 7. Ce qui reste
 
 - [x] Vérifier le jeu de test dans `/p08/test/mr1_daily`
@@ -431,8 +507,10 @@ attendre MR1 v1.1. **Jeu fabriqué, pas des mesures réelles.**
 - [ ] **MR2 Java + tests T05–T06 sur données réelles** (bloqué : MR1 v1.1 10 colonnes)
 - [x] Tables Iceberg + Spark SQL (volume synthétique)
 - [x] Fenêtres 48 h → 1 h (échantillon) + baselines naïves (`scripts/baseline.py`)
-- [ ] GRU (plancher à battre : saisonnier 24 h, MAE test **0,2021**)
-- [ ] GRU + Autoencoder
+- [x] GRU 48 h → 24 h : MAE test **0,1980** vs saisonnier 0,2014
+- [ ] GRU 48 h → 1 h (plancher toujours à battre : saisonnier MAE test 0,2021)
+- [x] MR2 → Iceberg `monthly` (2 snapshots) + MR1 → Iceberg `daily` (3 191 lignes)
+- [x] Autoencoder jour 24 h : résultat 
 - [ ] Dashboard + rapport + soutenance
 
 ## 8. Décisions
@@ -479,5 +557,5 @@ mvn -q compile
 - [x] Fuseau horaire vérifié (tout GMT : consommation et tarifs, aucune conversion)
 - [x] MR2 codé, compilé, exécuté (sur jeu de test)
 - [x] Résultats validés à la main (jeu de test)
-- [ ] Iceberg opérationnel
-- [ ] Deep Learning
+- [x] Iceberg opérationnel (`lh.p08.monthly`, `lh.p08.daily`)
+- [x] Deep Learning : GRU 24 h (test lu une fois) + AE jour (test non lu)

@@ -1,0 +1,20 @@
+{
+  "tag": "runB_l1cal",
+  "loss": "l1",
+  "calendar": true,
+  "input_size": 5,
+  "best_epoch": 40,
+  "monitor": "mae",
+  "best_score": 0.12307716734919981,
+  "val_gru_mae": 0.12307716734919981,
+  "val_gru_rmse": 0.24574224972631548,
+  "val_gru_mse": 0.060389253300550796,
+  "val_saisonnier_mae": 0.13678729287685026,
+  "val_saisonnier_rmse": 0.2687142190169149,
+  "beats_seasonal_val_mae": true,
+  "seed": 42,
+  "hidden": 64,
+  "layers": 1,
+  "n_train": 47771,
+  "n_val": 13315
+}
