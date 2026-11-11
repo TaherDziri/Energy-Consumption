@@ -48,3 +48,6 @@ logs/
 tmp/
 .env
 .env.*
+data/dashboard/
+metastore_db/
+derby.log

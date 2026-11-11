@@ -510,7 +510,8 @@ attendre MR1 v1.1. **Jeu fabriqué, pas des mesures réelles.**
 - [x] GRU 48 h → 24 h : MAE test **0,1980** vs saisonnier 0,2014
 - [ ] GRU 48 h → 1 h (plancher toujours à battre : saisonnier MAE test 0,2021)
 - [x] MR2 → Iceberg `monthly` (2 snapshots) + MR1 → Iceberg `daily` (3 191 lignes)
-- [x] Autoencoder jour 24 h : résultat 
+- [x] Autoencoder jour 24 h : résultat **négatif** — 12,4 % de détection à 1 % de
+  fausses alertes, sous le seuil pré-enregistré de 40 % → **test non lu**
 - [ ] Dashboard + rapport + soutenance
 
 ## 8. Décisions
