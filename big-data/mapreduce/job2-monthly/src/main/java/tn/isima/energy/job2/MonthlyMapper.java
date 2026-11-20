@@ -22,8 +22,10 @@ import org.apache.hadoop.mapreduce.Mapper;
  *   valeur = DailyMetrics du jour
  *
  * Le calendrier tarifaire est charge une seule fois, dans setup().
- * Aucune conversion de fuseau ici : MR1 a deja ecrit des slots en GMT
- * (hypothese de travail, voir docs/03 "Changement d'heure").
+ * Aucune conversion de fuseau ici : depuis le contrat v1.1, MR1 ecrit
+ * deja des jours et des slots LOCAUX (Europe/London), avec 46/48/50
+ * demi-heures selon la DST (docs/02 §8). MR2 ne fait que controler la
+ * coherence avec l'attendu local calcule par TariffCalendar.
  */
 public class MonthlyMapper
         extends Mapper<LongWritable, Text, HouseholdMonthKey, DailyMetrics> {
@@ -129,6 +131,9 @@ public class MonthlyMapper
             context.getCounter(GROUP, "missing_slots_mismatch").increment(1);
         }
         context.getCounter(GROUP, "duplicate_slots").increment(diag.duplicateSlots);
+        if (TariffCalendar.expectedSlots(date) != TariffCalendar.SLOTS_PER_DAY) {
+            context.getCounter(GROUP, "dst_days").increment(1);
+        }
         if (diag.slotCountMismatch) {
             context.getCounter(GROUP, "series_slot_mismatch").increment(1);
         }
@@ -191,15 +196,16 @@ public class MonthlyMapper
                 return null;
             }
 
-            // 0..47 : en GMT, 48 creneaux par jour
+            // 0..47 : grille locale naive, 48 valeurs de slot possibles
             if (slot < 0 || slot >= TariffCalendar.SLOTS_PER_DAY
                     || kwh < 0.0 || Double.isNaN(kwh)) {
                 diag.seriesError = true;
                 return null;
             }
 
-            // Liste de paires, jamais une Map : un doublon n'est pas ecrase.
-            // En GMT il ne devrait pas y en avoir ; on le compte quand meme.
+            // Liste de paires, jamais une Map : une repetition n'est pas ecrasee.
+            // Le 27/10 (50 demi-heures) repete les slots 2 et 3 : attendu,
+            // mais compte quand meme pour rendre ce cas visible.
             if (!seenSlots.add(slot)) diag.duplicateSlots++;
             diag.pairs++;
             sumKwh += kwh;

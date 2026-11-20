@@ -51,13 +51,33 @@ public class TariffCalendarTest {
     }
 
     @Test
-    public void expectedSlotsIsAlways48() {
-        // En GMT, aucun jour ne fait 23 h ni 25 h.
+    public void expectedSlotsFollowsLondonDst() {
+        // Contrat v1.1 : jour LOCAL, 46/48/50 demi-heures.
         assertEquals(48, TariffCalendar.expectedSlots("2013-03-01"));
-        assertEquals(48, TariffCalendar.expectedSlots("2013-03-31"));
+        assertEquals(46, TariffCalendar.expectedSlots("2013-03-31")); // printemps
+        assertEquals(48, TariffCalendar.expectedSlots("2013-04-01"));
         assertEquals(48, TariffCalendar.expectedSlots("2013-10-26"));
-        assertEquals(48, TariffCalendar.expectedSlots("2013-10-27"));
+        assertEquals(50, TariffCalendar.expectedSlots("2013-10-27")); // automne
         assertEquals(48, TariffCalendar.expectedSlots("2013-10-28"));
+    }
+
+    @Test
+    public void fallBackDayKeepsBothSlotPrices() throws IOException {
+        TariffCalendar cal = calendarWith(
+                "2013-10-27,2,Normal,11.76",
+                "2013-10-27,3,Normal,12.00");
+
+        // Les deux passages physiques par 01:00 et 01:30 utilisent le meme
+        // prix local ; la somme des kWh des deux paires est bien additionnee.
+        assertEquals(11.76, cal.pricePence("2013-10-27", 2), 1e-9);
+        assertEquals(12.00, cal.pricePence("2013-10-27", 3), 1e-9);
+        assertEquals(50, TariffCalendar.expectedSlots("2013-10-27"));
+    }
+
+    private static TariffCalendar calendarWith(String... rows) throws IOException {
+        StringBuilder sb = new StringBuilder("date,slot,tariff,price_pence\n");
+        for (String row : rows) sb.append(row).append('\n');
+        return TariffCalendar.load(new StringReader(sb.toString()));
     }
 
     @Test
@@ -68,7 +88,7 @@ public class TariffCalendarTest {
                 + "2013-03-01,x,Std,10.5\n"             // slot non entier
                 + "2013-03-01,2,Std,notanumber\n"       // prix non numerique
                 + "2013-13-01,3,Std,10.0\n"             // mois 13 invalide
-                + "2013-03-01,48,Std,10.0\n"            // slot 48 : impossible en GMT
+                + "2013-03-01,48,Std,10.0\n"            // slot 48 : hors grille 0..47
                 + "2013-03-01,0,Std,99.9\n";            // doublon (date, slot)
 
         TariffCalendar cal = TariffCalendar.load(new StringReader(csv));

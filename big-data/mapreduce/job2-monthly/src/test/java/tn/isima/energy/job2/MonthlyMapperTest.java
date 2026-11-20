@@ -101,6 +101,45 @@ public class MonthlyMapperTest {
     }
 
     @Test
+    public void dstDaysAreConsistentWithMr1() throws IOException {
+        TariffCalendar cal = calendarFor("2013-03-31,0,Normal,11.76",
+                                         "2013-10-27,2,Normal,11.76");
+
+        // 31/03 : 46 demi-heures, slots 2 et 3 absents, aucun manquant.
+        MonthlyMapper.Diagnostics spring = new MonthlyMapper.Diagnostics();
+        StringBuilder springSeries = new StringBuilder();
+        for (int slot = 0; slot < 48; slot++) {
+            if (slot == 2 || slot == 3) continue;
+            if (springSeries.length() > 0) springSeries.append(';');
+            springSeries.append(slot).append(":0.1");
+        }
+        DailyMetrics sm = MonthlyMapper.buildMetrics(
+                "2013-03-31", "Std", 4.6, 46, 0, 0.1,
+                springSeries.toString(), cal, spring);
+        assertNotNull(sm);
+        assertFalse(spring.seriesError);
+        assertFalse(spring.missingSlotsMismatch);  // 46 + 0 == 46
+        assertEquals(46, spring.pairs);
+
+        // 27/10 : 50 demi-heures, slots 2 et 3 repetes, aucun manquant.
+        MonthlyMapper.Diagnostics fall = new MonthlyMapper.Diagnostics();
+        StringBuilder fallSeries = new StringBuilder();
+        for (int slot = 0; slot < 48; slot++) {
+            if (fallSeries.length() > 0) fallSeries.append(';');
+            fallSeries.append(slot).append(":0.1");
+        }
+        fallSeries.append(";2:0.2;3:0.2");
+        DailyMetrics fm = MonthlyMapper.buildMetrics(
+                "2013-10-27", "ToU", 5.2, 50, 0, 0.2,
+                fallSeries.toString(), cal, fall);
+        assertNotNull(fm);
+        assertFalse(fall.seriesError);
+        assertFalse(fall.missingSlotsMismatch);    // 50 + 0 == 50
+        assertEquals(2, fall.duplicateSlots);      // slots 2 et 3 repetes
+        assertEquals(50, fm.getObservedSlots());
+    }
+
+    @Test
     public void inconsistenciesAreFlaggedNotFatal() throws IOException {
         TariffCalendar cal = calendarFor("2013-03-01,0,Normal,11.76");
         MonthlyMapper.Diagnostics diag = new MonthlyMapper.Diagnostics();

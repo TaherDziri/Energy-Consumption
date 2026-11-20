@@ -5,6 +5,13 @@ Mesures faites le 2026-11-11 sur la branche `solo-Rahma`, cluster Docker
 un seul hote). Tout chiffre ci-dessous a ete produit par une commande
 reproductible ; rien n'est estime.
 
+**Mise a jour 2026-11-20 :** integration du contrat v1.1 livre par Taher
+(jour et creneaux **locaux Europe/London**, DST 46/48/50). Les jars ont ete
+reconstruits (§1) et un **run reel sur l'echantillon 5 foyers** a ete produit
+et charge (§2). Les mesures F11 ci-dessous restent celles du 2026-11-11 avec
+les **anciens** jars : elles ne sont pas presentees comme des mesures du jar
+v1.1.
+
 ---
 
 ## 1. F01 - integrite des artefacts (SHA-256)
@@ -15,8 +22,8 @@ SHA256` (poste) et de `sha256sum` (conteneur).
 
 | Artefact | Taille | SHA-256 poste | SHA-256 conteneur / HDFS | Identique |
 |---|---|---|---|---|
-| `job1-daily-consumption.jar` | 15 843 B | `6df1def50216d457337148687f337053bafb37038c983ae0dea769711ecde3fc` | `6df1def5...cde3fc` (`/job/`) | **oui** |
-| `job2-monthly-aggregation.jar` | 19 555 B | `0d8eaeb01219546cbc76cdbb0d529ef26352129e2f39eb2af93187aa6ca2d413` | `0d8eaeb0...a2d413` (`/tmp/`) | **oui** |
+| `job1-daily-consumption.jar` (v1.1) | 20 543 B | `38bf1070ac121a95580e68d521424f7931ff1e581b7505dd4ad9d48ed258fa64` | `38bf1070...8fa64` (`/job/`) | **oui** |
+| `job2-monthly-aggregation.jar` (v1.1) | 19 906 B | `ad01db8e4653fbca59aa3f995fe4406b35ee4a2f16d7f10cc664db5f4aab40f9` | `ad01db8e...40f9` (`/tmp/`) | **oui** |
 | `data/tariffs_2013_price.csv` | 461 203 B | `b70543c61d52e66d1a039adbfd6bb51d729b50f23f65fd8331186363ca837d46` | `b70543c6...7d46` (`/p08/raw/tariffs/`) | **oui** |
 | `mr1_v11_sample.tsv` (fixture) | 1 472 260 B | `a9e1f1faade949e555d9d9cfba6e165d4591bb1f42eda71861a7b03d4a86e354` | `a9e1f1fa...e354` (`/p08/test/mr1_v11_sample/part-mr1v11.tsv`) | **oui** |
 | `synthetic_155k.tsv` | 55,1 Mo | - (pas de copie locale) | `61379bd000eb45bd69a3fec50bfc0e913bc20f3e5f34dd8697cca0fb004e2197` | HDFS seul |
@@ -35,6 +42,8 @@ Requete : `sql/f06_quality.sql`.
 | Table | Version | Lignes | Foyers | Debut | Fin | kWh | ok | non ok | creneaux manquants | pics NULL |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `lh.p08.daily` | `mr1-4cols-sample` | 3 191 | 5 | 2012-01-30 | 2014-02-28 | 28 416,517 | 3 161 | 30 | 467 | 3 191 |
+| `lh.p08.monthly` | `mr1-v11-real-sample` | 108 | 5 | 2012-01-01 | 2014-02-01 | 28 416,517 | 55 | 53 | - | - |
+| `lh.p08.daily_v11` | `mr1-v11-real-sample` | 3 191 | 5 | 2012-01-30 | 2014-02-28 | 28 416,517 | - | 30 | 473 | 0 |
 | `lh.test.monthly` | `sample-fixture-v11` | 108 | 5 | 2012-01-01 | 2014-02-01 | 28 416,517005 | 55 | 53 | - | - |
 | `lh.test.monthly` | `test-contract-mr2` | 2 | 1 | 2012-03-01 | 2013-03-01 | 71,8 | 0 | 2 | - | - |
 | `lh.test.monthly` | `tou-test-mr2` | 1 | 1 | 2013-01-01 | 2013-01-01 | 60,0 | 1 | 0 | - | - |
@@ -55,6 +64,28 @@ totaux journaliers ecrits par MR1 v1, pas d'une perte d'energie (moyenner les
 105 doublons ne change pas la somme). Le nombre de creneaux manquants declare
 par `lh.p08.daily` (467, derive `48 - n_slots`) est **identique** a celui
 calcule par la fixture (467) : deux chemins, meme diagnostic.
+
+### Run reel v1.1 (`mr1-v11-real-sample`, 2026-11-20)
+
+Ce run n'est **pas** la fixture : MR1 v1.1 a ete relance sur
+`/p08/raw/meters/sample_5households.csv` (5 foyers reels) puis MR2 v1.1 sur sa
+sortie. Compteurs MR1 : `readings_valid=152806`, `duplicate_rows_averaged=105`,
+`dst_days=17`, toutes les incoherences a 0, `elapsed_ms=34443`. Compteurs MR2 :
+`lines_ok=3191`, `flag_ok=55`, `flag_partial_data=5`, `flag_no_tariff=48`,
+`priced_slots=87594`, `unpriced_slots=65107`, `missing_slots_total=473`,
+`duplicate_slots=20`, `dst_days=17`, `missing_slots_mismatch=0`,
+`run_id=mr2-v11-real-sample`, `elapsed_ms=22116`.
+
+Trois controles independants :
+
+| Controle | Resultat |
+|---|---|
+| MR1 -> MR2 par `(foyer, mois)` | ecart max **0,0** (28 416,517 kWh des deux cotes) |
+| `scripts/check_v11_vs_mr2.py` (CSV brut -> local DST -> mois, sans lire MR2) | kwh `2,8e-6`, cout `5,2e-7`, pic `1,0e-7`, couverture `0` ; **0** ecart de flag ; **48** couts NULL des deux cotes ; **0** cout a 0 |
+| `sql/p08_v11_real.sql` (Iceberg) | 108 lignes, 60 couts, 48 NULL, **2 321,437776 GBP**, ecart journalier/mensuel **0,0** |
+
+Les 20 `duplicate_slots` sont les slots 2 et 3 repetes le 27/10 (50
+demi-heures) : deux lectures physiques **additionnees**, jamais ecrasees.
 
 ---
 
@@ -84,8 +115,10 @@ Data et ses metriques sont des mesures locales, distinctes des compteurs du
 cluster.
 
 Limites assumees : cluster Docker mono-hote, aucun run a l'echelle des 8,5 Go
-du binome, hypothese GMT et convention de timestamp non verifiees, cout `Std`
-a prix plat 2013 uniquement.
+du binome, jours/creneaux locaux `Europe/London` depuis le contrat v1.1 (mais
+la **convention debut/fin de periode reste non verifiee** et la citation du
+guide officiel n'a pas ete relue dans le PDF), cout `Std` a prix plat 2013
+uniquement.
 
 ---
 
@@ -118,6 +151,16 @@ echelles, et le cluster est un seul hote Docker. **Aucune acceleration
 lineaire n'est revendiquee** : on rapporte le volume traite, les compteurs et
 le temps observe, pas un debit normalise.
 
+**Important — version du jar.** Ce tableau a ete mesure le 2026-11-11 avec les
+jars `6df1def5...` (job 1) et `0d8eaeb0...` (job 2), soit l'hypothese GMT. Les
+jars ont ensuite ete reconstruits le 2026-11-20 pour le contrat v1.1 local DST
+(`38bf1070...` et `ad01db8e...`, voir §1). Avec le **nouveau** jar, une seule
+mesure a ete faite : MR2 v1.1 sur 3 191 lignes reelles, `elapsed_ms=22 116`
+(§2). Les volumes synthetiques V2/V3 **n'ont pas ete re-mesures** avec le jar
+v1.1 : les temps du tableau ne doivent donc **pas** etre attribues au jar
+v1.1. La conclusion qualitative (cout fixe dominant, aucune acceleration
+lineaire revendiquee) reste intacte, mais elle n'est pas une nouvelle mesure.
+
 ### Run 8,5 Go du binome
 
 Non reproduit ici. A demander, et a etiqueter « mesure du binome » :
@@ -134,9 +177,9 @@ du jar MR2, nombre de lignes de sortie, et s'il s'agit de MR1 ou MR2.
 | ID | Objet | Statut | Preuve |
 |---|---|---|---|
 | T01 | **definition absente du depot** | non evalue | a recopier depuis `ideep08.pdf` §8.2 (ne pas inventer) |
-| T02 | test MR1 v1.1 (definition PDF absente ; associe a MR1 v1.1 dans `docs/00`) | non realise | bloque : MR1 v1.1 non livre |
-| T03 | idem T02 | non realise | idem |
-| T04 | idem T02 | non realise | idem |
+| T02 | test MR1 v1.1 (definition PDF absente ; associe a MR1 v1.1 dans `docs/00`) | non evalue | MR1 v1.1 est **livre** (Taher, 2026-11-06), mais la definition exacte manque toujours : a recopier depuis `ideep08.pdf` §8.2 |
+| T03 | idem T02 | non evalue | idem |
+| T04 | idem T02 | non evalue | idem |
 | T05 | deux jours, calendrier connu | **fait** | `docs/03` §9 : 46,3 kWh, 6,587564 GBP, `partial_data` |
 | T06 | hors tarif 2013 -> cout NULL | **fait** | `2012-03` : cout vide, couverture 0, `no_tariff` |
 | T07 | ToU 19/01/2013, calcul manuel | **fait** | 48 creneaux, 18,341400 GBP, `ok` |
@@ -144,7 +187,10 @@ du jar MR2, nombre de lignes de sortie, et s'il s'agit de MR1 ou MR2.
 | T09 | **definition absente du depot** | non evalue | a recopier depuis `ideep08.pdf` §8.2 |
 | T10 | **definition absente du depot** | non evalue | a recopier depuis `ideep08.pdf` §8.2 |
 
-Tests unitaires : 27 tests / 6 classes, `mvn clean test` = `BUILD SUCCESS`.
+Tests unitaires (2026-11-20) : job 1 **37 tests / 4 classes**, job 2 **29 tests
+/ 6 classes**, `mvn clean test` = `BUILD SUCCESS` pour les deux modules. Les
+nouveaux tests couvrent `expectedSlots` 46/48/50 (`Europe/London`) et le
+doublon de slots 2/3 le 27/10.
 
 ---
 

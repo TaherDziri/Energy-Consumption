@@ -36,6 +36,8 @@ daily = load_dir(str(D_DASH / "daily"))
 monthly = load_dir(str(D_DASH / "monthly"))
 monthly_test = load_dir(str(D_DASH / "monthly_test"))
 monthly_fixture = load_dir(str(D_DASH / "monthly_fixture"))
+daily_v11 = load_dir(str(D_DASH / "daily_v11"))
+monthly_v11 = load_dir(str(D_DASH / "monthly_v11"))
 hourly = load_file(str(D_DL / "sample_hourly.parquet"))
 
 st.sidebar.title("P08 - consommation")
@@ -44,6 +46,7 @@ page = st.sidebar.radio("Page", [
     "Profil horaire",
     "Journees et pics",
     "Couts (GBP)",
+    "Run reel v1.1",
     "Validation (fixture)",
     "Qualite",
     "Std vs ToU",
@@ -53,6 +56,10 @@ page = st.sidebar.radio("Page", [
 
 if daily is not None:
     daily["day"] = pd.to_datetime(daily["day"])
+if daily_v11 is not None:
+    daily_v11["day"] = pd.to_datetime(daily_v11["day"])
+if monthly_v11 is not None:
+    monthly_v11["period"] = pd.to_datetime(monthly_v11["period"])
 
 # ---------------------------------------------------------------- 1. ensemble
 if page == "Vue d'ensemble":
@@ -119,9 +126,10 @@ elif page == "Journees et pics":
 # ------------------------------------------------------------------ 4. couts
 elif page == "Couts (GBP)":
     st.title("Couts")
-    st.warning(
-        "**Aucun run MR2 reel n'a encore ete charge.** `lh.p08.monthly` est vide par "
-        "decision de conception, en attente de MR1 v1.1."
+    st.info(
+        "Un **run MR2 reel** (echantillon 5 foyers, v1.1) est maintenant charge dans "
+        "`lh.p08.monthly` : voir la page **Run reel v1.1**. Le tableau ci-dessous "
+        "montre les lignes de validation (cout NULL = hors calendrier 2013)."
     )
     if monthly_test is not None and len(monthly_test):
         t = monthly_test.copy()
@@ -139,6 +147,86 @@ elif page == "Couts (GBP)":
         )
     else:
         st.info("lh.test.monthly vide ou non exporte.")
+
+# --------------------------------------------------- 5bis. run reel v1.1
+elif page == "Run reel v1.1":
+    st.title("Run reel v1.1 (echantillon 5 foyers)")
+    st.warning(
+        "**Run reel**, mais sur l'**echantillon de 5 foyers** : ce n'est **pas** le run "
+        "complet 8,5 Go. Source : `/p08/gold/mr1_daily_v11` (job 1 v1.1 de Taher) puis "
+        "MR2 v1.1. Jours et creneaux **locaux Europe/London**, DST 46/48/50."
+    )
+    if monthly_v11 is None or not len(monthly_v11):
+        st.error("Export manquant : lance sql/p08_dashboard_export_v11.sql")
+        st.stop()
+    m = monthly_v11.copy()
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Foyers", m["lclid"].nunique())
+    c2.metric("Lignes foyer x mois", len(m))
+    c3.metric("Energie totale", f"{m['monthly_kwh'].sum():,.3f} kWh")
+    c4.metric("Cout 2013", f"{m['estimated_cost_gbp'].sum():,.2f} GBP")
+    st.caption(
+        "Cout **NULL** = mois hors calendrier tarifaire 2013 (jamais 0) : "
+        f"{int(m['estimated_cost_gbp'].isna().sum())} lignes. "
+        "Convention debut/fin de periode : hypothese **non verifiee**."
+    )
+
+    t = m.assign(mois=m["period"].dt.strftime("%Y-%m"))
+    st.plotly_chart(
+        px.bar(t.groupby(["mois", "quality_flag"], as_index=False)
+                .agg(kwh=("monthly_kwh", "sum")),
+               x="mois", y="kwh", color="quality_flag",
+               title="Run reel v1.1 : kWh par mois et indicateur qualite",
+               labels={"mois": "mois", "kwh": "kWh", "quality_flag": "qualite"}),
+        width="stretch")
+
+    st.subheader("Detail mensuel")
+    st.dataframe(
+        m.sort_values(["lclid", "period"])[
+            ["lclid", "period", "tariff_group", "monthly_kwh", "estimated_cost_gbp",
+             "price_coverage", "peak_kwh_hh", "valid_days", "quality_flag", "run_id"]],
+        width="stretch")
+
+    if daily_v11 is not None and len(daily_v11):
+        d = daily_v11.copy()
+        st.subheader("Qualite journaliere et DST")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Jours-foyers", len(d))
+        c2.metric("Jours DST (46/50)", int((d["expected_slots"] != 48).sum()))
+        c3.metric("Jours incomplets", int((d["n_missing_slots"] > 0).sum()))
+        c4.metric("Pics NULL", int(d["peak_kwh_hh"].isna().sum()))
+        st.caption(
+            "Les jours de 50 demi-heures repettent les slots 2 et 3 (deux lectures "
+            "physiques additionnees). Un creneau absent est **absent** de la serie, "
+            "jamais ecrit `slot:0`."
+        )
+
+        st.subheader("Profil demi-heure moyen (serie MR1 v1.1)")
+        # La serie est "slot:kwh;slot:kwh;...". On l'eclate sans la faire confondre
+        # avec un creneau manquant : seules les paires presentes sont additionnees.
+        rows = []
+        for lclid, ser in zip(d["lclid"], d["series"]):
+            if not isinstance(ser, str) or not ser:
+                continue
+            for pair in ser.split(";"):
+                slot, _, val = pair.partition(":")
+                try:
+                    rows.append((lclid, int(slot), float(val)))
+                except ValueError:
+                    continue
+        if rows:
+            slots_df = pd.DataFrame(rows, columns=["lclid", "slot", "kwh"])
+            prof = slots_df.groupby("slot", as_index=False)["kwh"].mean()
+            st.plotly_chart(
+                px.line(prof, x="slot", y="kwh",
+                        title="Consommation moyenne par creneau local (0..47)",
+                        labels={"slot": "slot local (2 x heure + 30 min)",
+                                "kwh": "kWh moyen par creneau"}),
+                width="stretch")
+            st.caption(
+                "Slot = heure locale x 2 + minute/30. La moyenne inclut les jours DST : "
+                "les slots 2/3 du jour de 50 demi-heures comptent deux fois."
+            )
 
 # ------------------------------------------------- 6bis. validation (fixture)
 elif page == "Validation (fixture)":
@@ -191,17 +279,18 @@ elif page == "Qualite":
                            title="Indicateurs qualite"),
                     width="stretch")
     st.caption(
-        "`n_missing_slots` est **derive** (48 - n_slots) en MR1 v1 : ce n'est pas une mesure "
-        "des creneaux absents du fichier source. MR1 v1.1 le fournira."
+        "Cette vue vient de `lh.p08.daily` (MR1 v1, 4 colonnes) : `n_missing_slots` y est "
+        "**derive** (48 - n_slots), pas mesure. Le vrai `n_missing_slots` du contrat v1.1 "
+        "(jour local, DST 46/48/50) est sur la page **Run reel v1.1**."
     )
 
 # -------------------------------------------------------------- 6. Std vs ToU
 elif page == "Std vs ToU":
     st.title("Std vs ToU")
-    st.error(
-        "**Vue impossible aujourd'hui.** `tariff_group` est NULL dans lh.p08.daily "
-        "(MR1 4 colonnes) et lh.p08.monthly n'a aucune ligne de production. "
-        "La comparaison Standard / Time-of-Use exige MR1 v1.1."
+    st.warning(
+        "MR1 v1.1 fournit bien `tariff_group`, mais l'**echantillon de 5 foyers est "
+        "exclusivement Std** : aucune comparaison Standard / Time-of-Use n'est possible "
+        "sur ce run reel. Seule la preuve synthe`tique/toU ci-dessous reste disponible."
     )
     if monthly_test is not None and "tou-test-mr2" in set(monthly_test["dataset_version"]):
         st.caption("Seule preuve disponible : la ligne du test ToU du 19/01/2013.")
@@ -241,10 +330,15 @@ elif page == "Modeles (documentation)":
 else:
     st.title("Limites declarees")
     st.markdown(
-        "- **Profil demi-heure** : impossible avant MR1 v1.1 (pas de `slot`).\n"
-        "- **Pics** (`peak_kwh_hh`, `peak_slot`) : NULL en MR1 v1.\n"
-        "- **Std vs ToU** : impossible, `tariff_group` NULL.\n"
-        "- **Couts** : 3 lignes de validation seulement ; 2012 = non calculable.\n"
-        "- **Profils affiches** : echantillon horaire 5 foyers, explicitement etiquete.\n"
-        "- **MR2 sur donnees reelles** : bloque par l'absence de MR1 v1.1 (10 colonnes)."
+        "- **Profil demi-heure** : disponible sur la page **Run reel v1.1** (echantillon "
+        "5 foyers). Le run complet 8,5 Go n'a pas ete reproduit localement.\n"
+        "- **Pics** (`peak_kwh_hh`, `peak_slot`) : NULL en MR1 v1 (4 colonnes) ; renseignes "
+        "dans le run reel v1.1.\n"
+        "- **Std vs ToU** : l'echantillon reel est exclusivement Std ; seule une preuve "
+        "synthetique reste disponible.\n"
+        "- **Couts** : run reel v1.1 = 60 couts calcules (2013) et 48 NULL (hors 2013) ; "
+        "aucun cout ne vaut 0.\n"
+        "- **Convention debut/fin de periode** : hypothese **non verifiee**, meme en v1.1.\n"
+        "- **Volumes synthetiques** (fixture, `synthetic_155k`) : etiques comme tels, "
+        "jamais presentes comme des mesures."
     )

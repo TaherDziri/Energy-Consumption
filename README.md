@@ -17,16 +17,20 @@ workload on a 5-household hourly sample.
 | Rahma (Person 2) | `solo-Rahma` | Job 2, Iceberg, dashboard, GRU, Autoencoder |
 | Integration | `Main` | merged, always runnable |
 
-## Status (branch `solo-Rahma`, 2026-11-11)
+## Status (branch `solo-Rahma`, 2026-11-20)
 
 | Phase | Scope | State |
 |---|---|---|
 | 0-3 | Environment, profiling, Job 1, cluster, validation | done |
-| 4 | Job 2 (monthly + cost) with 27 JUnit tests | done |
+| 4 | Job 2 (monthly + cost) with 29 JUnit tests | done |
 | 5 | Iceberg `lh.p08.daily`, `lh.p08.monthly`, `lh.test.monthly` | done |
-| 6 | Parquet exports + Streamlit dashboard (9 pages) | done |
+| 6 | Parquet exports + Streamlit dashboard (10 pages) | done |
 | 7 | GRU 24 h (single test read) + daily autoencoder | done (AE negative) |
-| 8 | MR1 v1.1 (10 columns) on real data | **blocked**: awaiting Person 1 |
+| 8 | MR1 v1.1 (10 columns) integrated from Person 1 | **done** on the real 5-household sample; full 8.5 GB run belongs to Person 1 and was not reproduced here |
+
+Job 1 v1.1 uses **local `Europe/London` days/slots with DST (46/48/50 half-hours)**.
+This supersedes the earlier GMT working hypothesis; the start-vs-end-of-period
+timestamp convention remains an **unverified assumption**.
 
 ## Stack
 
@@ -37,8 +41,8 @@ Spark 3.5.1 + Iceberg 1.5.2, PyTorch CPU, Streamlit + Plotly.
 
 ```
 big-data/
-  mapreduce/job1-daily/          Job 1 - daily kWh, 4 columns (delivered)
-  mapreduce/job2-monthly/        Job 2 - monthly kWh + cost, 27 JUnit tests
+  mapreduce/job1-daily/          Job 1 v1.1 - daily profile, 10 columns, local DST
+  mapreduce/job2-monthly/        Job 2 - monthly kWh + cost, 29 JUnit tests, DST-aware
   spark/ iceberg/                notes on the Iceberg loading (see sql/)
 sql/
   p08_load.sql                   DDL + first loads (daily, monthly)
@@ -46,14 +50,17 @@ sql/
   p08_fixture_monthly.sql        loads the sample-fixture-v11 run
   p08_dashboard_export.sql       Iceberg -> data/dashboard/*.parquet
   p08_dashboard_export_fixture.sql
+  p08_v11_real.sql               loads the real MR1 v1.1 run into lh.p08
+  p08_dashboard_export_v11.sql   exports that run to data/dashboard/{monthly,daily}_v11
   f06_quality.sql                quality metrics + chain reconciliation
 scripts/
   make_mr1_v11_fixture.py        sample CSV -> MR1 v1.1 TSV (test fixture)
   check_fixture_vs_mr2.py        independent pandas check, tolerance 1e-6
+  check_v11_vs_mr2.py            independent raw CSV -> local DST -> monthly check
   hdfs/make620k.awk              builds the 620k synthetic volume
   hdfs/run_f11.sh                timed MR2 run (F11 measurements)
   *.py                           DL: sample prep, GRU, baselines, autoencoder
-dashboard/app.py                 Streamlit, read-only, 9 pages
+dashboard/app.py                 Streamlit, read-only, 10 pages
 docs/                            design, contract, runbook, proofs
 ```
 
@@ -103,6 +110,27 @@ Fixture `sample-fixture-v11` (10 columns, built from the same 5 households,
 | inconsistency counters | `series_slot_mismatch`, `series_mismatch`, `peak_mismatch`, `missing_slots_mismatch`, `duplicate_slots` = **0** |
 | independent pandas check | every row within **1e-6** |
 
+### Job 2 on the **real** v1.1 run (`mr1-v11-real-sample`)
+
+Not the fixture: Job 1 v1.1 was rerun on `sample_5households.csv` (5 real
+households, local `Europe/London` days/slots), then Job 2 v1.1 aggregated its
+output. `run_id=mr2-v11-real-sample`.
+
+| Metric | Value |
+|---|---|
+| MR1 output / MR2 output | 3,191 daily rows / **108** monthly rows |
+| MR1 → MR2 reconciliation | **0.0 kWh** per household-month |
+| Independent check from raw CSV | max diff 2.8e-6 kWh, 5.2e-7 GBP, **0** flag differences, **48** NULL costs on both sides |
+| Quality flags | 55 `ok`, 5 `partial_data`, 48 `no_tariff` |
+| NULL costs | **48** (outside the 2013 calendar; never 0) |
+| Total energy | 28,416.517 kWh |
+| Total cost (2013 only) | **2,321.437776 GBP** |
+| DST days / duplicate slots | 17 / 20 (slots 2 and 3 repeated on 27 Oct, summed, not overwritten) |
+| `missing_slots_mismatch` | 0 |
+
+The full 8.5 GB run remains Person 1's; only his recorded counters exist, and
+they are labelled as such, not presented as a local measurement.
+
 ### F11 - three volumes, same job, same host
 
 | Volume | Nature | Lines | `elapsed_ms` | mappers | reducers | map time | reduce time |
@@ -116,6 +144,11 @@ one 17,520-line tariff load per mapper through the DistributedCache) dominate
 at these sizes and the cluster is a single Docker host. **No linear speed-up is
 claimed.**
 
+These timings were measured on 2026-11-11 with the **pre-DST jars**. The v1.1
+jars were rebuilt on 2026-11-20; with the new Job 2 jar the only measurement so
+far is `elapsed_ms=22,116` on 3,191 real rows. The synthetic volumes were **not**
+re-measured, so the table above must not be attributed to the v1.1 jar.
+
 ### Deep Learning (5-household hourly sample, not a Big Data volume)
 
 - GRU 48 -> 24 h, selected on validation only: `runA_l1` (val MAE 0.1206) kept,
@@ -127,13 +160,15 @@ claimed.**
 
 ## Limitations (declared, not hidden)
 
-- MR1 v1 produces 4 columns only: no 48-slot profile, no peaks, no
-  Standard/Time-of-Use comparison. Everything above is labelled accordingly.
-- `lh.p08.monthly` contains **production runs only** and is currently **empty**;
-  the fixture and contract runs live in `lh.test.monthly`.
-- Time zone and the start-vs-end-of-period timestamp convention are an
-  **unverified assumption** (both tables assumed GMT, 48 slots per day). The
-  fixture keeps the timestamps exactly as written.
+- The old 4-column MR1 v1 output (no slots, no peaks, no `tariff_group`) is kept
+  in `lh.p08.daily` for comparison. The 10-column v1.1 profile is available in
+  `lh.p08.daily_v11` / the dashboard page **Run reel v1.1**.
+- `lh.p08.monthly` now holds the **real 5-household sample** (`mr1-v11-real-sample`);
+  the fixture and contract runs remain isolated in `lh.test.monthly`. No
+  synthetic volume is ever presented as a measurement.
+- Days and slots are **local `Europe/London`** (DST 46/48/50) since v1.1. The
+  **start-vs-end-of-period timestamp convention is still unverified**; the cited
+  guide sentence has not been re-read in `ideep08.pdf`.
 - Cost is an exercise estimate (flat 14.228 p/kWh for `Std`, 2013 only,
   excluding taxes and standing charges).
 - Single Docker host; the 8.5 GB full run belongs to Person 1 and is not

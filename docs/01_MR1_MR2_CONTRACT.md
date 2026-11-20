@@ -1,5 +1,15 @@
 # Contrat MR1 → MR2
 
+> **Mise à jour 2026-11-20 — contrat v1.1 livré (Taher).** Le format
+> 10 colonnes ci-dessous reste valable, mais le fuseau a changé : les
+> `date` et `slot` sont désormais **locaux (Europe/London)**, pas GMT.
+> Un jour attendu fait **46 / 48 / 50** demi-heures selon la DST, et
+> `n_missing_slots = attendu(date) − n_valid_slots`. Les paragraphes
+> marqués « hypothèse GMT » ci-dessous décrivent la version initiale,
+> conservée pour mémoire ; la règle applicable est
+> `docs/data-contract.md` v1.1 et `docs/02_JOB1_EXTENSION_REQUEST.md` §8.
+> La convention début/fin de période reste **non vérifiée**.
+
 ## 1. Pourquoi un contrat
 
 MR1 et MR2 sont deux jobs séparés qui communiquent uniquement par des
@@ -20,7 +30,7 @@ décimales avec `.` (jamais de virgule), pas de séparateur de milliers.
 | 3 | `tariff_group` | texte | `Std` ou `ToU` |
 | 4 | `total_kwh` | décimal | somme des créneaux **observés** |
 | 5 | `n_valid_slots` | entier | nombre de créneaux observés |
-| 6 | `n_missing_slots` | entier | `attendu(date) − n_valid_slots` ; attendu = **48** (jour GMT de 24 h, tous les jours de l'année) |
+| 6 | `n_missing_slots` | entier | `attendu(date) − n_valid_slots` ; attendu = **46 / 48 / 50** (jour **local** Europe/London, voir note v1.1 en tête) |
 | 7 | `peak_kwh_hh` | décimal | max d'un créneau, en **kWh/30 min** |
 | 8 | `peak_slot` | entier | indice du pic (0–47) |
 | 9 | `avg_valid_kwh_hh` | décimal | `total_kwh / n_valid_slots` |

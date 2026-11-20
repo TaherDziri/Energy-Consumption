@@ -1,8 +1,17 @@
 # MR2 — Conception détaillée
 
-**Version :** 1.3 — 2026-11-06, révisée le 2026-11-09 (tout en GMT)
+**Version :** 1.4 — 2026-11-20 (contrat v1.1 livré : jour local Europe/London, DST 46/48/50)
 **Auteure :** Rahma (Personne 2)
 **Référence :** `ideep08.pdf` §8.2, tests T05 et T06
+
+> **Changement depuis v1.3.** MR1 écrit maintenant des jours et des slots
+> **locaux** (`Europe/London`). `TariffCalendar.expectedSlots(date)` calcule
+> 46 demi-heures le jour du passage à l'heure d'été, 50 à l'automne, 48
+> sinon ; MR2 vérifie `n_valid + n_missing` contre cet attendu. Les jours
+> de 50 demi-heures ont deux paires au même slot 2/3 : elles sont additionnées
+> (compteur `duplicate_slots`) et non écrasées. Les références « GMT »
+> ci-dessous sont l'hypothèse initiale conservée pour mémoire ; la
+> convention début/fin de période reste non vérifiée.
 
 ## 1. Rôle de MR2
 
