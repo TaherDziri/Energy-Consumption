@@ -24,9 +24,10 @@ workload on a 5-household hourly sample.
 | 0-3 | Environment, profiling, Job 1, cluster, validation | done |
 | 4 | Job 2 (monthly + cost) with 29 JUnit tests | done |
 | 5 | Iceberg `lh.p08.daily`, `lh.p08.monthly`, `lh.test.monthly` | done |
-| 6 | Parquet exports + Streamlit dashboard (10 pages) | done |
+| 6 | Parquet exports + Streamlit dashboard (11 pages) | done |
 | 7 | GRU 24 h (single test read) + daily autoencoder | done (AE negative) |
 | 8 | MR1 v1.1 (10 columns) integrated from Person 1 | **done** on the real 5-household sample; full 8.5 GB run belongs to Person 1 and was not reproduced here |
+| 9 | Real 50-household run (40 Std + 10 ToU), own Iceberg version + dashboard page | **done**, MR1↔MR2 écart 0,0 |
 
 Job 1 v1.1 uses **local `Europe/London` days/slots with DST (46/48/50 half-hours)**.
 This supersedes the earlier GMT working hypothesis; the start-vs-end-of-period
@@ -52,6 +53,8 @@ sql/
   p08_dashboard_export_fixture.sql
   p08_v11_real.sql               loads the real MR1 v1.1 run into lh.p08
   p08_dashboard_export_v11.sql   exports that run to data/dashboard/{monthly,daily}_v11
+   p08_50mix.sql                  loads the real 50-household Std+ToU run (mr1-v11-50mix)
+   p08_dashboard_export_50mix.sql exports it to data/dashboard/{monthly,daily}_50mix
   f06_quality.sql                quality metrics + chain reconciliation
 scripts/
   make_mr1_v11_fixture.py        sample CSV -> MR1 v1.1 TSV (test fixture)
