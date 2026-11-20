@@ -9,11 +9,14 @@ package tn.isima.energy.job1;
  *  - value < 0              -> NEGATIVE (defensive, dataset has none)
  *  - timestamp not ISO-like -> MALFORMED
  *  - first field "LCLid"    -> HEADER
- * The date key is the first 10 characters of the timestamp (attribution rule A).
+ *  - tariff not Std/ToU     -> UNKNOWN_TARIFF (defensive, dataset has none)
+ *
+ * Contract v1.1: the day key is the LOCAL date (Europe/London), converted
+ * from the raw UTC timestamp. See {@link LocalSlot}.
  */
 public final class LineParser {
 
-    public enum Status { OK, HEADER, MISSING, MALFORMED, NEGATIVE }
+    public enum Status { OK, HEADER, MISSING, MALFORMED, NEGATIVE, UNKNOWN_TARIFF }
 
     public static final class Result {
         private final Status status;
@@ -48,6 +51,11 @@ public final class LineParser {
         if (id.isEmpty() || "LCLid".equals(id)) return Result.of(Status.HEADER);
         if (!isIsoTimestamp(ts)) return Result.of(Status.MALFORMED);
 
+        String tariff = f[1].trim();
+        if (!"Std".equals(tariff) && !"ToU".equals(tariff)) {
+            return Result.of(Status.UNKNOWN_TARIFF);
+        }
+
         String raw = f[3].trim();
         if (raw.isEmpty() || "null".equalsIgnoreCase(raw)) return Result.of(Status.MISSING);
 
@@ -60,7 +68,13 @@ public final class LineParser {
         if (Double.isNaN(kwh) || Double.isInfinite(kwh)) return Result.of(Status.MALFORMED);
         if (kwh < 0.0) return Result.of(Status.NEGATIVE);
 
-        return Result.ok(new Reading(id, ts, ts.substring(0, 10), kwh));
+        return Result.ok(new Reading(
+                id,
+                tariff,
+                ts,
+                LocalSlot.localDate(ts),
+                LocalSlot.slot(ts),
+                kwh));
     }
 
     /** yyyy-MM-dd HH:mm:ss(.fffffff) */
@@ -79,7 +93,7 @@ public final class LineParser {
         return ("00".equals(mm) || "30".equals(mm)) && "00".equals(ss);
     }
 
-    public static String groupKey(String householdId, String date) {
-        return householdId + "|" + date;
+    public static String groupKey(String householdId, String localDate) {
+        return householdId + "|" + localDate;
     }
 }

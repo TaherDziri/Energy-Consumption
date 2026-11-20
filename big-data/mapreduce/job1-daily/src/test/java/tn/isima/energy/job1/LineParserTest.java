@@ -10,8 +10,18 @@ public class LineParserTest {
         LineParser.Result r = LineParser.parse("MAC000002,Std,2012-10-12 00:30:00.0000000, 0.123");
         assertEquals(LineParser.Status.OK, r.getStatus());
         assertEquals("MAC000002", r.getReading().getHouseholdId());
-        assertEquals("2012-10-12", r.getReading().getDate());
+        assertEquals("Std", r.getReading().getTariffGroup());
+        assertEquals("2012-10-12", r.getReading().getLocalDate());
+        assertEquals(3, r.getReading().getLocalSlot());
         assertEquals(0.123, r.getReading().getKwh(), 1e-9);
+    }
+
+    @Test
+    public void readsToUTariff() {
+        LineParser.Result r = LineParser.parse("MAC005565,ToU,2013-01-15 12:00:00.0000000,0.4");
+        assertEquals(LineParser.Status.OK, r.getStatus());
+        assertEquals("ToU", r.getReading().getTariffGroup());
+        assertEquals(24, r.getReading().getLocalSlot());
     }
 
     @Test
@@ -48,6 +58,12 @@ public class LineParserTest {
     public void detectsNegativeValue() {
         assertEquals(LineParser.Status.NEGATIVE,
                 LineParser.parse("MAC000002,Std,2012-10-12 00:30:00.0000000,-0.5").getStatus());
+    }
+
+    @Test
+    public void detectsUnknownTariff() {
+        assertEquals(LineParser.Status.UNKNOWN_TARIFF,
+                LineParser.parse("MAC000002,Premium,2012-10-12 00:30:00.0000000,0.5").getStatus());
     }
 
     @Test

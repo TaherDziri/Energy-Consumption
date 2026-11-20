@@ -10,7 +10,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
 
 /**
- * Job 1 entry point.
+ * Job 1 entry point (contract v1.1).
  * Usage: hadoop jar job1-daily-consumption.jar <input> <output>
  */
 public final class DailyConsumptionDriver {
@@ -26,10 +26,10 @@ public final class DailyConsumptionDriver {
             System.exit(2);
         }
 
-        // NullWritable key + separator "" => the output is a pure CSV line.
-        conf.set("mapreduce.output.textoutputformat.separator", "");
+        // NullWritable key + TAB separator => pure TSV lines, contract v1.1.
+        conf.set("mapreduce.output.textoutputformat.separator", "\t");
 
-        Job job = Job.getInstance(conf, "P08 job1 - daily consumption per household");
+        Job job = Job.getInstance(conf, "P08 job1 - daily profile per household (v1.1)");
         job.setJarByClass(DailyConsumptionDriver.class);
 
         job.setMapperClass(DailyConsumptionMapper.class);
@@ -48,11 +48,12 @@ public final class DailyConsumptionDriver {
         boolean ok = job.waitForCompletion(true);
         long elapsed = System.currentTimeMillis() - start;
 
-        System.out.println("===== P08 JOB 1 COUNTERS =====");
+        System.out.println("===== P08 JOB 1 COUNTERS (v1.1) =====");
         String[] names = {
             "readings_valid", "missing_null", "malformed", "negative",
             "header_skipped", "readings_off_grid", "value_parse_error",
-            "duplicate_rows_averaged", "days_more_than_48", "days_dropped_empty"
+            "unknown_tariff", "duplicate_rows_averaged", "tariff_conflict",
+            "dst_days", "days_more_than_expected", "days_dropped_empty"
         };
         for (String n : names) {
             System.out.println(n + " = " + job.getCounters().findCounter("P08", n).getValue());

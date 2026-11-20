@@ -120,47 +120,60 @@ Rules:
 
 Please confirm:
 
-- [ ] Option A (replace output) or Option B (second output path)
-- [ ] `tariff_group` source: `stdorToU` column
-- [x] Time zone: everything stays in **GMT**, no conversion (see §8)
-- [ ] Version bump of `docs/data-contract.md` to v1.3
+- [x] Option A (replace output) or Option B (second output path) → **A**, §8
+- [x] `tariff_group` source: `stdorToU` column → §8
+- [x] Time zone → **local Europe/London with DST** (décision Taher §8, remplace
+      l'hypothèse GMT initiale conservée en §9 pour mémoire)
+- [x] Version bump of `docs/data-contract.md` to **v1.1** (see §8)
 
-Once confirmed, Job 2 can be developed against the frozen v1.3 contract.
+Once confirmed, Job 2 can be developed against the frozen v1.1 contract.
 
-## 8. Fuseau horaire : hypothèse de travail GMT (2026-11-06, révisé le 2026-11-09)
+---
 
-**Hypothèse de travail :** les `DateTime` bruts **et** le calendrier
-tarifaire sont en **GMT** (heure standard toute l'année). Aucune
-conversion n'est à faire. Cette hypothèse reste **à vérifier** : la
-citation du guide officiel n'a pas encore été relue dans le PDF.
+## 8. Decision (Taher, 2026-11-06)
 
-Éléments connus :
+All four points are accepted, with one clarification on the DST convention.
 
-- guide officiel du dataset (UK Data Service, SN 7857, §3.3
-  « Structure ») : les tables `consumption_*.csv` et `tariff_d.csv`
-  seraient horodatées « GMT » et « en fin de période » — **citation
-  exacte à recopier depuis le PDF, non vérifiée à ce jour** ;
-- `grep -c '2013-03-31 01:00:00'` sur `sample_5households.csv` → **5**
-  (les 5 foyers) : `01:00` existe → **pas de trou DST** dans la
-  consommation ; cela ne prouve pas le fuseau du calendrier tarifaire ;
-- 31/03/2013 : 48 timestamps uniques, journée de 24 h complète ;
-- le calendrier tarifaire contient 48 lignes le 31/03 **et** le 27/10,
-  mais c'est une grille naïve 00:00–23:30 : **non probant** pour le
-  fuseau ni pour la convention début/fin de période.
+- [x] **Option A** - the Job 1 output is replaced by the 10-field TSV, written to
+      `/p08/gold/mr1_daily`. The v1.0 four-column output stays available as an
+      archive at `/p08/processed/daily_consumption` and is no longer updated.
+- [x] `tariff_group` source = the `stdorToU` column of the raw CSV
+      (`Std` / `ToU`). Any other value is dropped and counted, never guessed.
+- [x] DST convention for `n_missing_slots`: the day and the slot are **local**
+      (Europe/London), because the ToU calendar is local. `expected_slots` is
+      computed from the timezone rules: 48 ordinary, **46** spring forward,
+      **50** fall back. Therefore `n_missing_slots = expected - n_valid` and a
+      complete spring day is `46 / 0`, not `46 / 2`. On a fall-back day the
+      two physical half-hours that share slots 2 and 3 appear as two entries in
+      `series` (same slot index, different values).
+- [x] `docs/data-contract.md` bumped to **v1.1** with a change-log entry.
 
-> **Non vérifié :** la provenance du calendrier réellement chargé
-> (`tariffs_2013_price.csv`, dérivé de `data/Tariffs.xlsx`) depuis
-> `tariff_d.csv` n'est pas documentée. Voir `01_MR1_MR2_CONTRACT.md` §10
-> et `03_MR2_DESIGN.md` « Changement d'heure ».
+Implementation notes for MR2:
 
-MR1 doit donc :
+- `series` keeps the observed slots only, chronological by UTC timestamp;
+  a measured zero stays `slot:0.0`.
+- `peak_slot` is the slot index of `max(series)`; on a tie the earliest wins.
+- `total_kwh` keeps 3 decimals, `series`/`peak`/`avg` up to 6 decimals.
+- Empty day (no observed slot): `total_kwh=0.000` and fields 7-10 empty.
+  No such row exists in the current dataset, but MR2 must not divide by zero.
 
-1. moyenner les doublons `(household_id, DateTime)` (règle 3 du data
-   contract) ;
-2. calculer `date` et `slot = heure ×2 + minute/30` **en GMT**, sans
-   `ZoneId` ;
-3. écrire `n_missing_slots = 48 − n_valid_slots`.
+## 9. Hypothèse GMT initiale (2026-11-06, révisée le 2026-11-09) — remplacée par §8
 
-Ne **pas** convertir en Europe/London : sous l'hypothèse GMT ci-dessus,
-convertir la consommation seule décalerait tous les prix de 2 créneaux
-pendant le BST (≈ 7 mois de l'année).
+> **Historique seulement.** Cette hypothèse a été remplacée par la décision
+> §8 (jour et créneaux `Europe/London`, 46/48/50 créneaux). Elle est gardée
+> parce que la citation du PDF qui la motivait reste **non vérifiée**.
+
+- Le guide officiel du dataset (UK Data Service, SN 7857, §3.3 « Structure »)
+  est supposé horodater `consumption_*.csv` et `tariff_d.csv` en GMT et
+  **en fin de période** ; citation exacte **à recopier depuis `ideep08.pdf`,
+  non vérifiée à ce jour**. La convention début vs fin de période reste donc
+  une **hypothèse non vérifiée**, indépendamment du choix de fuseau §8.
+- `grep -c '2013-03-31 01:00:00'` sur `sample_5households.csv` → **5** :
+  `01:00` existe dans la consommation brute, ce qui ne prouve pas le fuseau
+  du calendrier tarifaire.
+- Le calendrier tarifaire contient 48 lignes le 31/03 et le 27/10, mais
+  c'est une grille naïve 00:00–23:30 : non probant pour le fuseau.
+- **Non vérifié :** la provenance du calendrier réellement chargé
+  (`tariffs_2013_price.csv`, dérivé de `data/Tariffs.xlsx`) depuis
+  `tariff_d.csv` n'est pas documentée. Voir `01_MR1_MR2_CONTRACT.md` §10
+  et `03_MR2_DESIGN.md` « Changement d'heure ».

@@ -5,7 +5,11 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
 
-/** Emits: key = "LCLid|yyyy-MM-dd", value = "timestamp;kwh". */
+/**
+ * Emits: key = "LCLid|localDate", value = "tariff;slot;timestamp;kwh".
+ * The date and the slot are LOCAL (Europe/London); the timestamp stays raw UTC
+ * so duplicate detection and chronological ordering stay exact.
+ */
 public class DailyConsumptionMapper extends Mapper<LongWritable, Text, Text, Text> {
 
     private final Text outKey = new Text();
@@ -20,8 +24,9 @@ public class DailyConsumptionMapper extends Mapper<LongWritable, Text, Text, Tex
         switch (result.getStatus()) {
             case OK:
                 Reading r = result.getReading();
-                outKey.set(LineParser.groupKey(r.getHouseholdId(), r.getDate()));
-                outValue.set(r.getTimestamp() + ";" + r.getKwh());
+                outKey.set(LineParser.groupKey(r.getHouseholdId(), r.getLocalDate()));
+                outValue.set(r.getTariffGroup() + ";" + r.getLocalSlot() + ";"
+                        + r.getTimestamp() + ";" + r.getKwh());
                 context.write(outKey, outValue);
                 context.getCounter("P08", "readings_valid").increment(1);
                 if (!LineParser.isOnGrid(r.getTimestamp())) {
@@ -36,6 +41,9 @@ public class DailyConsumptionMapper extends Mapper<LongWritable, Text, Text, Tex
                 break;
             case NEGATIVE:
                 context.getCounter("P08", "negative").increment(1);
+                break;
+            case UNKNOWN_TARIFF:
+                context.getCounter("P08", "unknown_tariff").increment(1);
                 break;
             default:
                 context.getCounter("P08", "malformed").increment(1);
