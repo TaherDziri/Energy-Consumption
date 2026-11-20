@@ -122,6 +122,25 @@ console**.
 
 ---
 
+## 6. Deep Learning — livrable exigé oralement (2 min)
+
+Le Deep Learning (GRU + autoencodeur) est un livrable exigé oralement par l'enseignante. Le sujet écrit (ideep08.pdf §12) le classe hors périmètre ; cette exigence orale n'est pas confirmée par écrit à ce jour.
+
+**À dire (4 phrases) :**
+
+1. « Les données sont l'échantillon réel de 5 foyers, converti en base horaire, avec des fenêtres de 48 h en entrée et 24 h en sortie, et un split temporel 70/15/15 en train/validation/test. »
+2. « Le GRU `runA_l1` a été choisi sur la validation seule (MAE 0,1206 contre 0,1231 pour `runB_l1cal`) ; le test n'a été lu qu'une seule fois : MAE 0,1980 contre 0,2014 pour la base saisonnière, soit un écart de 0,0034 kWh — je ne le présente pas comme un gain important. »
+3. « L'autoencodeur est un résultat négatif documenté : la règle (40 % de détection à 1 % de fausses alertes) a été fixée avant de lire le test, elle donne 12,4 % sur la validation, donc le test n'a jamais été lu. C'est une conclusion valable, pas un résultat masqué. »
+4. « Je montre la page **Modeles (documentation)** du dashboard, puis la page **Limites** où la formulation orale/écrite est affichée. »
+
+**Questions probables du jury :**
+
+- **Q : Pourquoi faire du DL si le PDF le met hors périmètre ?** R : Livrable exigé oralement par l'enseignante ; le sujet écrit (§12) le classe hors périmètre et il n'y a pas de confirmation écrite à ce jour. On le dit explicitement.
+- **Q : Le gain du GRU est-il convaincant ?** R : Non : 0,1980 contre 0,2014, écart 0,0034 kWh ; test lu une seule fois. On ne revendique pas d'amélioration majeure.
+- **Q : L'autoencodeur a-t-il échoué ?** R : Il n'a pas atteint le seuil pré-enregistré (12,4 % au lieu de 40 % à 1 % de fausses alertes) ; le test n'a pas été lu. C'est un résultat négatif documenté, donc une conclusion honnête.
+- **Q : Est-ce du Big Data ?** R : Non : c'est un échantillon horaire de 5 foyers, distinct des compteurs HDFS/MR2 ; il n'est pas présenté comme un volume Big Data.
+
+---
 ## Ce qui reste à demander au binôme (run 8,5 Go)
 
 1. identifiant de job (`job_...` / `application_...`) ;
