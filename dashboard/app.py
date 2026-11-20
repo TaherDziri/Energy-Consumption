@@ -300,6 +300,7 @@ elif page == "Std vs ToU":
 # ------------------------------------------------------------------ 7. modeles
 elif page == "Modeles (documentation)":
     st.title("Resultats des modeles (lecture seule)")
+    st.caption("Le Deep Learning (GRU + autoencodeur) est un livrable exigé oralement par l'enseignante. Le sujet écrit (ideep08.pdf §12) le classe hors périmètre ; cette exigence orale n'est pas confirmée par écrit à ce jour.")
     b = load_file(str(D_DL / "baseline_24h_metrics.csv"))
     if b is not None:
         st.subheader("Baselines 24 h (test, kWh reels)")
@@ -312,7 +313,7 @@ elif page == "Modeles (documentation)":
                       title="GRU runA_l1 vs saisonnier - MAE par horizon (test)")
         st.plotly_chart(fig, width="stretch")
         st.caption("Test lu **une seule fois** (journal test_seen.json). "
-                   "MAE poulee 0,1980 vs 0,2014.")
+                   "MAE poulee 0,1980 vs 0,2014 (gain faible).")
     a = load_file(str(D_DL / "ae_day_val_errors.csv"))
     if a is not None:
         st.subheader("Autoencodeur jour - erreurs VAL")
@@ -340,5 +341,8 @@ else:
         "aucun cout ne vaut 0.\n"
         "- **Convention debut/fin de periode** : hypothese **non verifiee**, meme en v1.1.\n"
         "- **Volumes synthetiques** (fixture, `synthetic_155k`) : etiques comme tels, "
-        "jamais presentes comme des mesures."
+        "jamais presentes comme des mesures.\n"
+        "- **Deep Learning** : Le Deep Learning (GRU + autoencodeur) est un livrable "
+        "exigé oralement par l'enseignante. Le sujet écrit (ideep08.pdf §12) le classe "
+        "hors périmètre ; cette exigence orale n'est pas confirmée par écrit à ce jour."
     )

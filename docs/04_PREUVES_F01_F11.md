@@ -109,10 +109,7 @@ La chaine est separee en quatre etages independants et rejouables :
 
 Le **dashboard ne lit pas Iceberg en direct** mais des exports Parquet : la
 demo reste reproductible sans garder une session Spark ouverte, et l'export
-est la seule chose a regenerer. Le volet **Deep Learning** est traite a part,
-sur un echantillon horaire de 5 foyers : il ne pretend pas etre du volume Big
-Data et ses metriques sont des mesures locales, distinctes des compteurs du
-cluster.
+est la seule chose a regenerer. Le Deep Learning (GRU + autoencodeur) est un livrable exigé oralement par l'enseignante. Le sujet écrit (ideep08.pdf §12) le classe hors périmètre ; cette exigence orale n'est pas confirmée par écrit à ce jour. Il porte sur un echantillon horaire de 5 foyers : il ne pretend pas etre du volume Big Data et ses metriques sont des mesures locales, distinctes des compteurs du cluster. Resultats inchanges : GRU selectionne sur validation, test lu une seule fois, MAE 0,1980 contre 0,2014 pour la base saisonniere (gain faible) ; autoencodeur = resultat negatif documente, test jamais lu.
 
 Limites assumees : cluster Docker mono-hote, aucun run a l'echelle des 8,5 Go
 du binome, jours/creneaux locaux `Europe/London` depuis le contrat v1.1 (mais

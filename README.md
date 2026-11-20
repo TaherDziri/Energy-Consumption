@@ -173,11 +173,7 @@ re-measured, so the table above must not be attributed to the v1.1 jar.
   excluding taxes and standing charges).
 - Single Docker host; the 8.5 GB full run belongs to Person 1 and is not
   reproduced here.
-- `ideep08.pdf` §12 lists **Deep Learning forecasting as out of scope**, and
-  §9.2 restricts the *optional* ML part to classical methods (no
-  LSTM/Transformer/autoencoder). The Deep Learning part of this repository is
-  therefore **extra work outside the cahier des charges**, not an answer to a
-  requirement.
+- Le Deep Learning (GRU + autoencodeur) est un livrable exigé oralement par l'enseignante. Le sujet écrit (ideep08.pdf §12) le classe hors périmètre ; cette exigence orale n'est pas confirmée par écrit à ce jour. `ideep08.pdf` §9.2 limite le ML optionnel aux méthodes classiques (pas de LSTM/Transformer/autoencodeur). Résultats inchangés : GRU sélectionné sur validation, test lu une seule fois, MAE 0,1980 contre 0,2014 pour la base saisonnière (gain faible) ; autoencodeur = résultat négatif documenté, test jamais lu.
 
 ## Data policy
 

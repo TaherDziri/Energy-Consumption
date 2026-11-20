@@ -114,7 +114,7 @@ Ouvrir `http://localhost:8501`, puis parcourir dans l'ordre :
 | 6 | Validation (fixture) | **`sample-fixture-v11` est une fixture**, pas de la production |
 | 7 | Qualite | `n_missing_slots` dérivé en v1 (48 − n_slots) |
 | 8 | Std vs ToU | échantillon réel **100 % Std** ; seule une preuve synthétique existe |
-| 9 | Modeles (documentation) | GRU test lu une fois ; AE = résultat négatif, test non lu |
+| 9 | Modeles (documentation) | Livrable exigé oralement (formulation en §6) ; GRU test lu une fois, MAE 0,1980 vs 0,2014 (gain faible) ; AE = résultat négatif, test non lu |
 | 10 | Limites | volumes synthétiques étiquetés, convention début/fin de période non vérifiée |
 
 Les 10 pages ont été vérifiées dans le navigateur le 2026-11-20 : **0 erreur
