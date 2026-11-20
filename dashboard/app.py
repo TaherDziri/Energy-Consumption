@@ -54,7 +54,6 @@ page = st.sidebar.radio("Page", [
     "Qualite",
     "Std vs ToU",
     "Modeles (documentation)",
-    "Limites",
 ])
 
 if daily is not None:
@@ -442,25 +441,3 @@ elif page == "Modeles (documentation)":
                    "alertes < 40 % pre-enregistre -> test jamais lu.")
     if b is None and g is None and a is None:
         st.caption("Aucun fichier de metriques local (ils sont hors Git).")
-
-# ------------------------------------------------------------------ 8. limites
-else:
-    st.title("Limites declarees")
-    st.markdown(
-        "- **Profil demi-heure** : disponible sur les pages **Run reel v1.1** (5 foyers) "
-        "et **Run reel 50 foyers** (40 Std + 10 ToU). Le run complet 8,5 Go n'a pas ete "
-        "reproduit localement.\n"
-        "- **Pics** (`peak_kwh_hh`, `peak_slot`) : NULL en MR1 v1 (4 colonnes) ; renseignes "
-        "dans les runs reel v1.1 et 50 foyers.\n"
-        "- **Std vs ToU** : le run reel 5 foyers est exclusivement Std ; le run reel "
-        "50 foyers ajoute 10 foyers ToU reels. La ligne `tou-test-mr2` reste une preuve "
-        "synthetique.\n"
-        "- **Couts** : run reel v1.1 = 60 couts calcules (2013) et 48 NULL ; run reel "
-        "50 foyers = 585 couts calcules et 652 NULL (hors 2013). Aucun cout ne vaut 0.\n"
-        "- **Convention debut/fin de periode** : hypothese **non verifiee**, meme en v1.1.\n"
-        "- **Volumes synthetiques** (fixture, `synthetic_155k`) : etiques comme tels, "
-        "jamais presentes comme des mesures.\n"
-        "- **Deep Learning** : Le Deep Learning (GRU + autoencodeur) est un livrable "
-        "exigé oralement par l'enseignante. Le sujet écrit (ideep08.pdf §12) le classe "
-        "hors périmètre ; cette exigence orale n'est pas confirmée par écrit à ce jour."
-    )

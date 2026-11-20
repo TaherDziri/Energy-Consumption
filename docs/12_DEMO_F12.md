@@ -130,7 +130,7 @@ jamais 0. Le run complet 8,5 Go reste une mesure du binôme. »
 `Std`. La preuve ici est la réconciliation MR1 → MR2 et la présence des deux
 `tariff_group`.
 
-## 5. Tableau de bord — les 11 pages (1 min)
+## 5. Tableau de bord — les 10 pages (1 min)
 
 ```powershell
 .venv\Scripts\streamlit run dashboard\app.py --server.headless true --server.port 8502
@@ -149,10 +149,9 @@ Ouvrir `http://localhost:8502`, puis parcourir dans l'ordre :
 | 7 | Validation (fixture) | **`sample-fixture-v11` est une fixture**, pas de la production |
 | 8 | Qualite | `n_missing_slots` dérivé en v1 (48 − n_slots) |
 | 9 | Std vs ToU | run 5 foyers 100 % Std ; le run 50 foyers ajoute 10 foyers ToU réels ; la ligne `tou-test-mr2` reste synthétique |
-| 10 | Modeles (documentation) | Livrable exigé oralement (formulation en §6) ; GRU test lu une fois, MAE 0,1980 vs 0,2014 (gain faible) ; AE = résultat négatif, test non lu |
-| 11 | Limites | volumes synthétiques étiquetés, run 8,5 Go = mesure du binôme, convention début/fin de période non vérifiée |
+| 10 | Modeles (documentation) | Livrable exigé oralement (formulation affichée en haut de page, voir §6) ; GRU test lu une fois, MAE 0,1980 vs 0,2014 (gain faible) ; AE = résultat négatif, test non lu |
 
-Les 11 pages ont été vérifiées dans le navigateur le 2026-11-20 : **0 erreur
+Les 10 pages ont été vérifiées dans le navigateur le 2026-11-20 : **0 erreur
 console**. Les encadrés colorés (`st.warning` / `st.error` / `st.info`) ont été
 remplacés par des légendes neutres (`st.caption`) : même contenu, sans code de
 couleur.
@@ -168,7 +167,7 @@ Le Deep Learning (GRU + autoencodeur) est un livrable exigé oralement par l'ens
 1. « Les données sont l'échantillon réel de 5 foyers, converti en base horaire, avec des fenêtres de 48 h en entrée et 24 h en sortie, et un split temporel 70/15/15 en train/validation/test. »
 2. « Le GRU `runA_l1` a été choisi sur la validation seule (MAE 0,1206 contre 0,1231 pour `runB_l1cal`) ; le test n'a été lu qu'une seule fois : MAE 0,1980 contre 0,2014 pour la base saisonnière, soit un écart de 0,0034 kWh — je ne le présente pas comme un gain important. »
 3. « L'autoencodeur est un résultat négatif documenté : la règle (40 % de détection à 1 % de fausses alertes) a été fixée avant de lire le test, elle donne 12,4 % sur la validation, donc le test n'a jamais été lu. C'est une conclusion valable, pas un résultat masqué. »
-4. « Je montre la page **Modeles (documentation)** du dashboard, puis la page **Limites** où la formulation orale/écrite est affichée. »
+4. « Je montre la page **Modeles (documentation)** du dashboard : la formulation orale/non écrite est affichée en haut de page, avec les métriques du GRU et le résultat négatif de l'autoencodeur. »
 
 **Questions probables du jury :**
 

@@ -24,7 +24,7 @@ workload on a 5-household hourly sample.
 | 0-3 | Environment, profiling, Job 1, cluster, validation | done |
 | 4 | Job 2 (monthly + cost) with 29 JUnit tests | done |
 | 5 | Iceberg `lh.p08.daily`, `lh.p08.monthly`, `lh.test.monthly` | done |
-| 6 | Parquet exports + Streamlit dashboard (11 pages) | done |
+| 6 | Parquet exports + Streamlit dashboard (10 pages) | done |
 | 7 | GRU 24 h (single test read) + daily autoencoder | done (AE negative) |
 | 8 | MR1 v1.1 (10 columns) integrated from Person 1 | **done** on the real 5-household sample; full 8.5 GB run belongs to Person 1 and was not reproduced here |
 | 9 | Real 50-household run (40 Std + 10 ToU), own Iceberg version + dashboard page | **done**, MR1↔MR2 écart 0,0 |
