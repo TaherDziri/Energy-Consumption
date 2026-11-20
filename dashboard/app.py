@@ -13,7 +13,7 @@ import streamlit as st
 D_DASH = Path("data/dashboard")
 D_DL = Path("data/processed/dl")
 
-st.set_page_config(page_title="P08 - Energy Consumption", layout="wide")
+st.set_page_config(page_title="P08 - Consommation energétique", layout="wide")
 
 
 @st.cache_data(show_spinner=False)
@@ -38,15 +38,18 @@ monthly_test = load_dir(str(D_DASH / "monthly_test"))
 monthly_fixture = load_dir(str(D_DASH / "monthly_fixture"))
 daily_v11 = load_dir(str(D_DASH / "daily_v11"))
 monthly_v11 = load_dir(str(D_DASH / "monthly_v11"))
+monthly_50mix = load_dir(str(D_DASH / "monthly_50mix"))
+daily_50mix = load_dir(str(D_DASH / "daily_50mix"))
 hourly = load_file(str(D_DL / "sample_hourly.parquet"))
 
-st.sidebar.title("P08 - consommation")
+st.sidebar.title("P08 - Consommation energétique")
 page = st.sidebar.radio("Page", [
     "Vue d'ensemble",
     "Profil horaire",
     "Journees et pics",
     "Couts (GBP)",
     "Run reel v1.1",
+    "Run reel 50 foyers",
     "Validation (fixture)",
     "Qualite",
     "Std vs ToU",
@@ -60,12 +63,16 @@ if daily_v11 is not None:
     daily_v11["day"] = pd.to_datetime(daily_v11["day"])
 if monthly_v11 is not None:
     monthly_v11["period"] = pd.to_datetime(monthly_v11["period"])
+if daily_50mix is not None:
+    daily_50mix["day"] = pd.to_datetime(daily_50mix["day"])
+if monthly_50mix is not None:
+    monthly_50mix["period"] = pd.to_datetime(monthly_50mix["period"])
 
 # ---------------------------------------------------------------- 1. ensemble
 if page == "Vue d'ensemble":
     st.title("Vue d'ensemble")
     if daily is None:
-        st.error("Export manquant : lance sql/p08_dashboard_export.sql")
+        st.caption("Export manquant : lance sql/p08_dashboard_export.sql")
         st.stop()
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Foyers", daily["lclid"].nunique())
@@ -85,12 +92,12 @@ if page == "Vue d'ensemble":
 # ------------------------------------------------------------- 2. profil horaire
 elif page == "Profil horaire":
     st.title("Profil horaire moyen")
-    st.warning(
-        "**Ce n'est pas un profil demi-heure.** Il vient de l'echantillon horaire "
+    st.caption(
+        "Ce n'est pas un profil demi-heure. Il vient de l'echantillon horaire "
         "(5 foyers, split train). Le profil 48 creneaux/jour exige MR1 v1.1 (10 colonnes)."
     )
     if hourly is None:
-        st.error("Echantillon absent : data/processed/dl/sample_hourly.parquet")
+        st.caption("Echantillon absent : data/processed/dl/sample_hourly.parquet")
         st.stop()
     h = hourly[hourly["split"] == "train"].copy()
     h["heure"] = h["hour_end"].dt.hour
@@ -109,7 +116,7 @@ elif page == "Profil horaire":
 elif page == "Journees et pics":
     st.title("Journees et pics")
     if daily is None:
-        st.error("Export manquant.")
+        st.caption("Export manquant.")
         st.stop()
     st.plotly_chart(px.histogram(daily, x="total_kwh", color="lclid", nbins=60,
                                  labels={"total_kwh": "kWh par jour", "lclid": "foyer"},
@@ -117,8 +124,8 @@ elif page == "Journees et pics":
                     width="stretch")
     top = daily.nlargest(10, "total_kwh")[["day", "lclid", "total_kwh", "n_slots", "quality_flag"]]
     st.dataframe(top, width="stretch")
-    st.info(
-        "`peak_kwh_hh` et `peak_slot` valent **NULL** par construction en MR1 v1 "
+    st.caption(
+        "`peak_kwh_hh` et `peak_slot` valent NULL par construction en MR1 v1 "
         "(4 colonnes) : aucun pic horaire fiable avant MR1 v1.1. "
         "La table ci-dessus n'est qu'un classement des totaux journaliers."
     )
@@ -126,8 +133,8 @@ elif page == "Journees et pics":
 # ------------------------------------------------------------------ 4. couts
 elif page == "Couts (GBP)":
     st.title("Couts")
-    st.info(
-        "Un **run MR2 reel** (echantillon 5 foyers, v1.1) est maintenant charge dans "
+    st.caption(
+        "Un run MR2 reel (echantillon 5 foyers, v1.1) est maintenant charge dans "
         "`lh.p08.monthly` : voir la page **Run reel v1.1**. Le tableau ci-dessous "
         "montre les lignes de validation (cout NULL = hors calendrier 2013)."
     )
@@ -146,18 +153,18 @@ elif page == "Couts (GBP)":
             "2012-03 : cout **non calculable** (hors calendrier tarifaire 2013) -> NULL, jamais 0."
         )
     else:
-        st.info("lh.test.monthly vide ou non exporte.")
+        st.caption("lh.test.monthly vide ou non exporte.")
 
 # --------------------------------------------------- 5bis. run reel v1.1
 elif page == "Run reel v1.1":
     st.title("Run reel v1.1 (echantillon 5 foyers)")
-    st.warning(
-        "**Run reel**, mais sur l'**echantillon de 5 foyers** : ce n'est **pas** le run "
+    st.caption(
+        "Run reel, mais sur l'echantillon de 5 foyers : ce n'est pas le run "
         "complet 8,5 Go. Source : `/p08/gold/mr1_daily_v11` (job 1 v1.1 de Taher) puis "
-        "MR2 v1.1. Jours et creneaux **locaux Europe/London**, DST 46/48/50."
+        "MR2 v1.1. Jours et creneaux locaux Europe/London, DST 46/48/50."
     )
     if monthly_v11 is None or not len(monthly_v11):
-        st.error("Export manquant : lance sql/p08_dashboard_export_v11.sql")
+        st.caption("Export manquant : lance sql/p08_dashboard_export_v11.sql")
         st.stop()
     m = monthly_v11.copy()
     c1, c2, c3, c4 = st.columns(4)
@@ -228,15 +235,109 @@ elif page == "Run reel v1.1":
                 "les slots 2/3 du jour de 50 demi-heures comptent deux fois."
             )
 
+# ---------------------------------------- 5ter. run reel 50 foyers Std+ToU
+elif page == "Run reel 50 foyers":
+    st.title("Run reel 50 foyers (40 Std + 10 ToU)")
+    st.caption(
+        "Run reel issu du jeu complet Low Carbon London : 50 foyers reels "
+        "(40 Std + 10 ToU). Source : `/p08/raw/meters/sample_50_mix.csv` -> "
+        "`/p08/gold/mr1_daily_50mix` -> `/p08/gold/mr2_monthly_50mix`, "
+        "`run_id=mr2-v11-50mix`. Jours et creneaux locaux Europe/London, DST 46/48/50. "
+        "Le run complet 8,5 Go reste une mesure du binome, non reproduite localement."
+    )
+    if monthly_50mix is None or not len(monthly_50mix):
+        st.caption("Export manquant : lance sql/p08_dashboard_export_50mix.sql")
+        st.stop()
+    m = monthly_50mix.copy()
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Foyers", m["lclid"].nunique())
+    c2.metric("Lignes foyer x mois", len(m))
+    c3.metric("Energie totale", f"{m['monthly_kwh'].sum():,.3f} kWh")
+    c4.metric("Cout 2013", f"{m['estimated_cost_gbp'].sum():,.2f} GBP")
+
+    st.caption(
+        f"Repartition : {m[m['tariff_group'] == 'Std']['lclid'].nunique()} foyers Std, "
+        f"{m[m['tariff_group'] == 'ToU']['lclid'].nunique()} foyers ToU. "
+        f"Cout NULL = mois hors calendrier tarifaire 2013 (jamais 0) : "
+        f"{int(m['estimated_cost_gbp'].isna().sum())} lignes ; aucun cout ne vaut 0. "
+        "Convention debut/fin de periode : hypothese non verifiee."
+    )
+
+    st.subheader("Repartition Std / ToU")
+    g = m.groupby("tariff_group", as_index=False).agg(
+        lignes=("lclid", "size"), foyers=("lclid", "nunique"),
+        kwh=("monthly_kwh", "sum"), cout=("estimated_cost_gbp", "sum"))
+    st.dataframe(g, width="stretch")
+    st.plotly_chart(
+        px.bar(g, x="tariff_group", y="kwh", text="kwh", color="tariff_group",
+               title="Energie par groupe tarifaire",
+               labels={"tariff_group": "groupe", "kwh": "kWh"}),
+        width="stretch")
+
+    t = m.assign(mois=m["period"].dt.strftime("%Y-%m"))
+    st.plotly_chart(
+        px.bar(t.groupby(["mois", "tariff_group"], as_index=False)
+                .agg(kwh=("monthly_kwh", "sum")),
+               x="mois", y="kwh", color="tariff_group",
+               title="Run reel 50 foyers : kWh par mois et groupe tarifaire",
+               labels={"mois": "mois", "kwh": "kWh", "tariff_group": "groupe"}),
+        width="stretch")
+
+    st.subheader("Detail mensuel")
+    st.dataframe(
+        m.sort_values(["lclid", "period"])[
+            ["lclid", "period", "tariff_group", "monthly_kwh", "estimated_cost_gbp",
+             "price_coverage", "peak_kwh_hh", "valid_days", "quality_flag", "run_id"]],
+        width="stretch")
+
+    if daily_50mix is not None and len(daily_50mix):
+        d = daily_50mix.copy()
+        st.subheader("Qualite journaliere et DST")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Jours-foyers", len(d))
+        c2.metric("Jours DST (46/50)", int((d["expected_slots"] != 48).sum()))
+        c3.metric("Jours incomplets", int((d["n_missing_slots"] > 0).sum()))
+        c4.metric("Pics NULL", int(d["peak_kwh_hh"].isna().sum()))
+        st.caption(
+            "Les jours de 50 demi-heures repettent les slots 2 et 3 (deux lectures "
+            "physiques additionnees). Un creneau absent est absent de la serie, "
+            "jamais ecrit `slot:0`."
+        )
+
+        st.subheader("Profil demi-heure moyen par groupe tarifaire")
+        rows = []
+        for lclid, grp, ser in zip(d["lclid"], d["tariff_group"], d["series"]):
+            if not isinstance(ser, str) or not ser:
+                continue
+            for pair in ser.split(";"):
+                slot, _, val = pair.partition(":")
+                try:
+                    rows.append((grp, int(slot), float(val)))
+                except ValueError:
+                    continue
+        if rows:
+            slots_df = pd.DataFrame(rows, columns=["tariff_group", "slot", "kwh"])
+            prof = slots_df.groupby(["tariff_group", "slot"], as_index=False)["kwh"].mean()
+            st.plotly_chart(
+                px.line(prof, x="slot", y="kwh", color="tariff_group",
+                        title="Consommation moyenne par creneau local et groupe tarifaire",
+                        labels={"slot": "slot local", "kwh": "kWh moyen par creneau",
+                                "tariff_group": "groupe"}),
+                width="stretch")
+            st.caption(
+                "Slot = heure locale x 2 + minute/30. Les slots 2/3 du jour de 50 "
+                "demi-heures comptent deux fois."
+            )
+
 # ------------------------------------------------- 6bis. validation (fixture)
 elif page == "Validation (fixture)":
     st.title("Validation sur fixture")
-    st.error(
-        "**Ce n'est pas de la production.** `sample-fixture-v11` est un jeu de test "
+    st.caption(
+        "Ce n'est pas de la production. `sample-fixture-v11` est un jeu de test "
         "fabrique depuis les 5 foyers de l'echantillon : ce n'est pas une sortie de MR1."
     )
     if monthly_fixture is None or not len(monthly_fixture):
-        st.info("Export manquant : lance sql/p08_dashboard_export_fixture.sql")
+        st.caption("Export manquant : lance sql/p08_dashboard_export_fixture.sql")
         st.stop()
     f = monthly_fixture.copy()
     c1, c2, c3, c4 = st.columns(4)
@@ -267,7 +368,7 @@ elif page == "Validation (fixture)":
 elif page == "Qualite":
     st.title("Qualite des donnees")
     if daily is None:
-        st.error("Export manquant.")
+        st.caption("Export manquant.")
         st.stop()
     st.plotly_chart(px.histogram(daily, x="n_slots", nbins=48,
                                  labels={"n_slots": "creneaux reellement sommes (sur 48)"},
@@ -287,10 +388,10 @@ elif page == "Qualite":
 # -------------------------------------------------------------- 6. Std vs ToU
 elif page == "Std vs ToU":
     st.title("Std vs ToU")
-    st.warning(
-        "MR1 v1.1 fournit bien `tariff_group`, mais l'**echantillon de 5 foyers est "
-        "exclusivement Std** : aucune comparaison Standard / Time-of-Use n'est possible "
-        "sur ce run reel. Seule la preuve synthe`tique/toU ci-dessous reste disponible."
+    st.caption(
+        "MR1 v1.1 fournit bien `tariff_group`. L'echantillon de 5 foyers etait "
+        "exclusivement Std ; la page **Run reel 50 foyers** ajoute 40 Std + 10 ToU reel. "
+        "La ligne de test ToU ci-dessous reste une preuve synthetique."
     )
     if monthly_test is not None and "tou-test-mr2" in set(monthly_test["dataset_version"]):
         st.caption("Seule preuve disponible : la ligne du test ToU du 19/01/2013.")
@@ -325,20 +426,22 @@ elif page == "Modeles (documentation)":
         st.caption("Resultat **negatif** documente : 12,4 % de detection a 1 % de fausses "
                    "alertes < 40 % pre-enregistre -> test jamais lu.")
     if b is None and g is None and a is None:
-        st.info("Aucun fichier de metriques local (ils sont hors Git).")
+        st.caption("Aucun fichier de metriques local (ils sont hors Git).")
 
 # ------------------------------------------------------------------ 8. limites
 else:
     st.title("Limites declarees")
     st.markdown(
-        "- **Profil demi-heure** : disponible sur la page **Run reel v1.1** (echantillon "
-        "5 foyers). Le run complet 8,5 Go n'a pas ete reproduit localement.\n"
+        "- **Profil demi-heure** : disponible sur les pages **Run reel v1.1** (5 foyers) "
+        "et **Run reel 50 foyers** (40 Std + 10 ToU). Le run complet 8,5 Go n'a pas ete "
+        "reproduit localement.\n"
         "- **Pics** (`peak_kwh_hh`, `peak_slot`) : NULL en MR1 v1 (4 colonnes) ; renseignes "
-        "dans le run reel v1.1.\n"
-        "- **Std vs ToU** : l'echantillon reel est exclusivement Std ; seule une preuve "
-        "synthetique reste disponible.\n"
-        "- **Couts** : run reel v1.1 = 60 couts calcules (2013) et 48 NULL (hors 2013) ; "
-        "aucun cout ne vaut 0.\n"
+        "dans les runs reel v1.1 et 50 foyers.\n"
+        "- **Std vs ToU** : le run reel 5 foyers est exclusivement Std ; le run reel "
+        "50 foyers ajoute 10 foyers ToU reels. La ligne `tou-test-mr2` reste une preuve "
+        "synthetique.\n"
+        "- **Couts** : run reel v1.1 = 60 couts calcules (2013) et 48 NULL ; run reel "
+        "50 foyers = 585 couts calcules et 652 NULL (hors 2013). Aucun cout ne vaut 0.\n"
         "- **Convention debut/fin de periode** : hypothese **non verifiee**, meme en v1.1.\n"
         "- **Volumes synthetiques** (fixture, `synthetic_155k`) : etiques comme tels, "
         "jamais presentes comme des mesures.\n"

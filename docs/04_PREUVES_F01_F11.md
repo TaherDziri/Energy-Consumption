@@ -87,6 +87,38 @@ Trois controles independants :
 Les 20 `duplicate_slots` sont les slots 2 et 3 repetes le 27/10 (50
 demi-heures) : deux lectures physiques **additionnees**, jamais ecrasees.
 
+### Run reel 50 foyers Std+ToU (`mr1-v11-50mix`, 2026-11-20)
+
+Nouveau run reel, sans toucher au run de reference 5 foyers. Source reelle
+`data/CC_LCL-FullData.csv` (7,96 GiB, 167 932 474 lignes, 5 566 foyers) :
+sous-echantillon deterministe par `LCLid` tri -> 40 `Std` + 10 `ToU`, soit
+`data/sample/sample_50_mix.csv` (**1 779 980 lignes**, 86,1 Mo), uploade dans
+`/p08/raw/meters/sample_50_mix.csv`. Nouveaux chemins HDFS
+`/p08/gold/mr1_daily_50mix` et `/p08/gold/mr2_monthly_50mix`, `run_id=mr2-v11-50mix`.
+
+Compteurs MR1 : `readings_valid=1779931`, `duplicate_rows_averaged=1228`,
+`tariff_conflict=0`, `dst_days=186`, `JOB1 STATUS = SUCCESS`, **37 145** lignes
+journalieres, duree mesuree **37,4 s**.
+
+Compteurs MR2 : `dst_days=186`, `duplicate_slots=196`, `priced_slots=851827`,
+`unpriced_slots=926876`, `missing_slots_mismatch=0`, `flag_ok=506`,
+`flag_partial_data=79`, `flag_partial_tariff=0`, `flag_no_tariff=652`,
+`months_written=1237`, `run_id=mr2-v11-50mix`, `elapsed_ms=19781`,
+`JOB2 STATUS = SUCCESS`, **1 237** lignes mensuelles, duree mesuree **21,6 s**.
+
+| Controle | Resultat |
+|---|---|
+| MR1 -> MR2 par `(foyer, mois, tarif)` | **1 237 / 1 237** lignes appariees, ecart max **0,0** (429 889,222 kWh des deux cotes) |
+| `sql/p08_50mix.sql` (Iceberg) | 1 237 lignes, 50 foyers, 585 couts, 652 NULL, **429 889,222 kWh**, **28 515,618413 GBP**, ecart journalier/mensuel **0,0** |
+| Groupes tarifaires | Std : 983 lignes / 40 foyers / 347 493,915 kWh / 23 532,849491 GBP ; ToU : 254 lignes / 10 foyers / 82 395,307 kWh / 4 982,768922 GBP |
+| `lh.p08.daily_v11` | 37 145 lignes, 50 foyers, 2011-12-06 -> 2014-02-28, 186 jours DST, 327 jours incomplets, 0 pic NULL, 0 tarif NULL |
+
+Regle des inconnus respectee : **652 couts NULL** (hors calendrier 2013) et
+**0 cout a 0** ; un creneau absent reste absent de la `series`. Le script
+`scripts/check_v11_vs_mr2.py` n'a **pas** ete utilise ici : il suppose un
+echantillon 100 % `Std`. La preuve de ce run est la reconciliation MR1 -> MR2
+et la presence des deux groupes tarifaires reels.
+
 ---
 
 ## 3. F10 - justification d'architecture

@@ -3,7 +3,8 @@
 **Critère exact (PDF §10) :** « Chaîne HDFS, MR1, MR2, Iceberg et tableau de
 bord démontrée. »
 
-**Périmètre affiché pendant la démo :** échantillon réel de **5 foyers**, jamais
+**Périmètre affiché pendant la démo :** échantillon réel de **5 foyers** (run de
+référence), complété par un **run réel de 50 foyers (40 Std + 10 ToU)**. Jamais
 le run complet 8,5 Go. Le run du binôme est une mesure externe, à citer comme
 telle. Volumes synthétiques (`synthetic_155k`, `synthetic_620k`) et fixture
 (`sample-fixture-v11`) toujours étiquetés.
@@ -18,11 +19,13 @@ Durée estimée de la démo : 3–5 min (hors redémarrage des conteneurs).
 docker ps --filter "name=p08-"
 docker exec p08-namenode hdfs dfs -ls -h /p08/raw/meters /p08/raw/tariffs
 docker exec p08-namenode hdfs dfs -ls -h /p08/gold/mr1_daily_v11 /p08/gold/mr2_monthly_v11
+docker exec p08-namenode hdfs dfs -ls -h /p08/raw/meters/sample_50_mix.csv /p08/gold/mr1_daily_50mix /p08/gold/mr2_monthly_50mix
 ```
 
 **À dire :** `raw` = CSV brut + tarifs, `gold` = sorties MR1/MR2. Les chemins
 `part-r-*` sont vérifiables. Le jar Job 1 est monté en lecture seule dans
-`/job` ; le jar Job 2 est copié dans `/tmp` du namenode.
+`/job` ; le jar Job 2 est copié dans `/tmp` du namenode. Le run 5 foyers et le
+run 50 foyers ont des chemins distincts : aucun n'écrase l'autre.
 
 ## 2. MR1 v1.1 — rejouer le job (1 min)
 
@@ -96,13 +99,44 @@ Résultat attendu : `108 | 60 | 48 | 28416.517 | 2321.437776`.
 `lh.test.monthly`. `lh.p08.daily_v11` (3 191 lignes) donne l'écart
 journalier/mensuel **0,0**.
 
-## 5. Tableau de bord — les 10 pages (1 min)
+## 4bis. Run réel 50 foyers Std+ToU (1 min)
+
+Run supplémentaire, sans écraser la référence 5 foyers. Sous-échantillon réel
+du fichier complet : 40 `Std` + 10 `ToU`, `sample_50_mix.csv` (1 779 980 lignes).
 
 ```powershell
-.venv\Scripts\streamlit run dashboard\app.py --server.headless true --server.port 8501
+docker exec p08-namenode hadoop jar /job/job1-daily-consumption.jar `
+  /p08/raw/meters/sample_50_mix.csv /p08/gold/mr1_daily_50mix
+docker exec p08-namenode hadoop jar /tmp/job2-monthly-aggregation.jar `
+  -D p08.run_id=mr2-v11-50mix `
+  /p08/gold/mr1_daily_50mix /p08/gold/mr2_monthly_50mix `
+  /p08/raw/tariffs/tariffs_2013_price.csv
 ```
 
-Ouvrir `http://localhost:8501`, puis parcourir dans l'ordre :
+Compteurs mesurés : MR1 `readings_valid=1779931`,
+`duplicate_rows_averaged=1228`, `dst_days=186`, **37 145** lignes, **37,4 s** ;
+MR2 `flag_ok=506`, `flag_partial_data=79`, `flag_no_tariff=652`,
+`duplicate_slots=196`, `missing_slots_mismatch=0`, `months_written=1237`,
+**21,6 s**. Iceberg (`sql/p08_50mix.sql`) : **1 237** lignes, 50 foyers,
+429 889,222 kWh, 28 515,618413 GBP, **652 NULL**, écart MR1↔MR2 **0,0**.
+
+**À dire :** « Je montre maintenant un vrai échantillon de 50 foyers, dont 10
+Time-of-Use, pour prouver que le contrat ne se limite pas au cas 100 % Std. Les
+deux groupes tarifaires sont présents dans la sortie et le coût des foyers ToU
+utilise bien `Low/High/Normal`. Les 652 coûts NULL sont hors calendrier 2013 :
+jamais 0. Le run complet 8,5 Go reste une mesure du binôme. »
+
+**Ne pas utiliser** `scripts/check_v11_vs_mr2.py` sur ce run : il suppose 100 %
+`Std`. La preuve ici est la réconciliation MR1 → MR2 et la présence des deux
+`tariff_group`.
+
+## 5. Tableau de bord — les 11 pages (1 min)
+
+```powershell
+.venv\Scripts\streamlit run dashboard\app.py --server.headless true --server.port 8502
+```
+
+Ouvrir `http://localhost:8502`, puis parcourir dans l'ordre :
 
 | # | Page | Point à montrer |
 |---|---|---|
@@ -111,14 +145,17 @@ Ouvrir `http://localhost:8501`, puis parcourir dans l'ordre :
 | 3 | Journees et pics | pics `NULL` en MR1 v1 (4 colonnes) |
 | 4 | Couts (GBP) | lignes de validation ; coût `non calculable` en 2012 |
 | 5 | **Run reel v1.1** | 108 lignes, 2 321,44 GBP, 48 NULL, 17 jours DST, profil demi-heure réel depuis `series` |
-| 6 | Validation (fixture) | **`sample-fixture-v11` est une fixture**, pas de la production |
-| 7 | Qualite | `n_missing_slots` dérivé en v1 (48 − n_slots) |
-| 8 | Std vs ToU | échantillon réel **100 % Std** ; seule une preuve synthétique existe |
-| 9 | Modeles (documentation) | Livrable exigé oralement (formulation en §6) ; GRU test lu une fois, MAE 0,1980 vs 0,2014 (gain faible) ; AE = résultat négatif, test non lu |
-| 10 | Limites | volumes synthétiques étiquetés, convention début/fin de période non vérifiée |
+| 6 | **Run reel 50 foyers** | 50 foyers (40 Std + 10 ToU), 1 237 lignes, 429 889,222 kWh, 28 515,62 GBP, 652 NULL, 186 jours DST, profil par groupe tarifaire |
+| 7 | Validation (fixture) | **`sample-fixture-v11` est une fixture**, pas de la production |
+| 8 | Qualite | `n_missing_slots` dérivé en v1 (48 − n_slots) |
+| 9 | Std vs ToU | run 5 foyers 100 % Std ; le run 50 foyers ajoute 10 foyers ToU réels ; la ligne `tou-test-mr2` reste synthétique |
+| 10 | Modeles (documentation) | Livrable exigé oralement (formulation en §6) ; GRU test lu une fois, MAE 0,1980 vs 0,2014 (gain faible) ; AE = résultat négatif, test non lu |
+| 11 | Limites | volumes synthétiques étiquetés, run 8,5 Go = mesure du binôme, convention début/fin de période non vérifiée |
 
-Les 10 pages ont été vérifiées dans le navigateur le 2026-11-20 : **0 erreur
-console**.
+Les 11 pages ont été vérifiées dans le navigateur le 2026-11-20 : **0 erreur
+console**. Les encadrés colorés (`st.warning` / `st.error` / `st.info`) ont été
+remplacés par des légendes neutres (`st.caption`) : même contenu, sans code de
+couleur.
 
 ---
 
