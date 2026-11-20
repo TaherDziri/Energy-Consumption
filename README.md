@@ -28,6 +28,7 @@ workload on a 5-household hourly sample.
 | 7 | GRU 24 h (single test read) + daily autoencoder | done (AE negative) |
 | 8 | MR1 v1.1 (10 columns) integrated from Person 1 | **done** on the real 5-household sample; full 8.5 GB run belongs to Person 1 and was not reproduced here |
 | 9 | Real 50-household run (40 Std + 10 ToU), own Iceberg version + dashboard page | **done**, MR1↔MR2 écart 0,0 |
+| 10 | DL predictions written to Iceberg (`lh.p08.dl_predictions`) as a branch parallel to Job 2 | **done**, 310 920 rows, test read once |
 
 Job 1 v1.1 uses **local `Europe/London` days/slots with DST (46/48/50 half-hours)**.
 This supersedes the earlier GMT working hypothesis; the start-vs-end-of-period
@@ -55,11 +56,14 @@ sql/
   p08_dashboard_export_v11.sql   exports that run to data/dashboard/{monthly,daily}_v11
    p08_50mix.sql                  loads the real 50-household Std+ToU run (mr1-v11-50mix)
    p08_dashboard_export_50mix.sql exports it to data/dashboard/{monthly,daily}_50mix
+   p08_dl_predictions.sql         loads selected GRU test predictions into lh.p08.dl_predictions
+   p08_dashboard_export_dl.sql    exports that table to data/dashboard/dl_predictions
   f06_quality.sql                quality metrics + chain reconciliation
 scripts/
   make_mr1_v11_fixture.py        sample CSV -> MR1 v1.1 TSV (test fixture)
   check_fixture_vs_mr2.py        independent pandas check, tolerance 1e-6
   check_v11_vs_mr2.py            independent raw CSV -> local DST -> monthly check
+   export_dl_predictions.py       selected GRU test preds -> CSV for Iceberg load
   hdfs/make620k.awk              builds the 620k synthetic volume
   hdfs/run_f11.sh                timed MR2 run (F11 measurements)
   *.py                           DL: sample prep, GRU, baselines, autoencoder

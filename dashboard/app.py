@@ -40,6 +40,7 @@ daily_v11 = load_dir(str(D_DASH / "daily_v11"))
 monthly_v11 = load_dir(str(D_DASH / "monthly_v11"))
 monthly_50mix = load_dir(str(D_DASH / "monthly_50mix"))
 daily_50mix = load_dir(str(D_DASH / "daily_50mix"))
+dl_preds = load_dir(str(D_DASH / "dl_predictions"))
 hourly = load_file(str(D_DL / "sample_hourly.parquet"))
 
 st.sidebar.title("P08 - Consommation energétique")
@@ -429,6 +430,37 @@ elif page == "Modeles (documentation)":
         st.plotly_chart(fig, width="stretch")
         st.caption("Test lu **une seule fois** (journal test_seen.json). "
                    "MAE poulee 0,1980 vs 0,2014 (gain faible).")
+    if dl_preds is not None:
+        st.subheader("Predictions DL dans Iceberg")
+        d = dl_preds.copy()
+        d["target_hour"] = pd.to_datetime(d["target_hour"])
+        meilleur = int((d["abs_err_gru"] < d["abs_err_seasonal"]).sum())
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Lignes", f"{len(d):,}")
+        m2.metric("Foyers", d["lclid"].nunique())
+        m3.metric("MAE GRU", f"{d['abs_err_gru'].mean():.4f} kWh")
+        m4.metric("MAE saisonnier", f"{d['abs_err_seasonal'].mean():.4f} kWh")
+        st.caption(
+            f"Source : `lh.p08.dl_predictions` (modele {d['model_tag'].iloc[0]}, "
+            f"split {d['split_name'].iloc[0]}), hash test {d['test_hash'].iloc[0]}, "
+            f"commit {d['git_commit'].iloc[0]}"
+            f" - {d['target_hour'].min():%Y-%m-%d %H:%M} a "
+            f"{d['target_hour'].max():%Y-%m-%d %H:%M}. Gru meilleur sur "
+            f"{meilleur:,} / {len(d):,} horizons. Branche parallèle a Job 2 "
+            "(source = serie MR1, jamais le mensuel)."
+        )
+        st.dataframe(
+            d.sort_values(["lclid", "target_hour", "horizon_h"]).head(200),
+            width="stretch",
+        )
+        st.caption("Extrait des 200 premieres lignes sur "
+                   f"{len(d):,} lignes de la table Iceberg.")
+    else:
+        st.caption(
+            "Export DL manquant : lance `scripts/export_dl_predictions.py`, "
+            "puis `sql/p08_dl_predictions.sql` et "
+            "`sql/p08_dashboard_export_dl.sql`."
+        )
     a = load_file(str(D_DL / "ae_day_val_errors.csv"))
     if a is not None:
         st.subheader("Autoencodeur jour - erreurs VAL")

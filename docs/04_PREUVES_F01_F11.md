@@ -112,6 +112,7 @@ Compteurs MR2 : `dst_days=186`, `duplicate_slots=196`, `priced_slots=851827`,
 | `sql/p08_50mix.sql` (Iceberg) | 1 237 lignes, 50 foyers, 585 couts, 652 NULL, **429 889,222 kWh**, **28 515,618413 GBP**, ecart journalier/mensuel **0,0** |
 | Groupes tarifaires | Std : 983 lignes / 40 foyers / 347 493,915 kWh / 23 532,849491 GBP ; ToU : 254 lignes / 10 foyers / 82 395,307 kWh / 4 982,768922 GBP |
 | `lh.p08.daily_v11` | 37 145 lignes, 50 foyers, 2011-12-06 -> 2014-02-28, 186 jours DST, 327 jours incomplets, 0 pic NULL, 0 tarif NULL |
+| `sql/p08_dl_predictions.sql` (Iceberg) | branche DL parallele a Job 2 : 310 920 lignes, 5 foyers, 24 horizons, MAE GRU **0,198047** vs saisonnier **0,201439**, `test_hash=eb401abb29f4a656`, `git_commit=a35e723` |
 
 Regle des inconnus respectee : **652 couts NULL** (hors calendrier 2013) et
 **0 cout a 0** ; un creneau absent reste absent de la `series`. Le script
@@ -141,7 +142,7 @@ La chaine est separee en quatre etages independants et rejouables :
 
 Le **dashboard ne lit pas Iceberg en direct** mais des exports Parquet : la
 demo reste reproductible sans garder une session Spark ouverte, et l'export
-est la seule chose a regenerer. Le Deep Learning (GRU + autoencodeur) est un livrable exigé oralement par l'enseignante. Le sujet écrit (ideep08.pdf §12) le classe hors périmètre ; cette exigence orale n'est pas confirmée par écrit à ce jour. Il porte sur un echantillon horaire de 5 foyers : il ne pretend pas etre du volume Big Data et ses metriques sont des mesures locales, distinctes des compteurs du cluster. Resultats inchanges : GRU selectionne sur validation, test lu une seule fois, MAE 0,1980 contre 0,2014 pour la base saisonniere (gain faible) ; autoencodeur = resultat negatif documente, test jamais lu.
+est la seule chose a regenerer. Le Deep Learning (GRU + autoencodeur) est un livrable exigé oralement par l'enseignante. Le sujet écrit (ideep08.pdf §12) le classe hors périmètre ; cette exigence orale n'est pas confirmée par écrit à ce jour. Il porte sur un echantillon horaire de 5 foyers : il ne pretend pas etre du volume Big Data et ses metriques sont des mesures locales, distinctes des compteurs du cluster. Resultats inchanges : GRU selectionne sur validation, test lu une seule fois, MAE 0,1980 contre 0,2014 pour la base saisonniere (gain faible) ; autoencodeur = resultat negatif documente, test jamais lu. Les predictions du modele retenu sont desormais ecrites dans la table Iceberg `lh.p08.dl_predictions` (310 920 lignes, source = serie MR1, jamais le mensuel de Job 2) ; cette ecriture est une branche parallele et ne modifie ni MR1 ni MR2.
 
 Limites assumees : cluster Docker mono-hote, aucun run a l'echelle des 8,5 Go
 du binome, jours/creneaux locaux `Europe/London` depuis le contrat v1.1 (mais

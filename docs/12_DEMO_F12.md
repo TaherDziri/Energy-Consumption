@@ -130,6 +130,38 @@ jamais 0. Le run complet 8,5 Go reste une mesure du binôme. »
 `Std`. La preuve ici est la réconciliation MR1 → MR2 et la présence des deux
 `tariff_group`.
 
+## 4ter. DL → Iceberg, branche parallèle à Job 2 (30 s)
+
+Le modèle DL n'est pas exécuté dans Job 2 : il consomme la série issue de MR1
+v1.1 (30 min → 1 h), puis ses prédictions sont écrites dans une table Iceberg
+dédiée. Le mensuel de Job 2 n'est ni lu ni modifié.
+
+```powershell
+.venv\Scripts\python scripts\export_dl_predictions.py
+docker run --rm --network p08_default -e HOME=/tmp -v "${PWD}:/work" -w /work `
+  apache/spark:3.5.1 /opt/spark/bin/spark-sql `
+  --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2 `
+  --conf spark.jars.ivy=/tmp/.ivy2 `
+  --conf spark.hadoop.fs.defaultFS=hdfs://namenode:9000 `
+  --conf spark.sql.catalog.lh=org.apache.iceberg.spark.SparkCatalog `
+  --conf spark.sql.catalog.lh.type=hadoop `
+  --conf spark.sql.catalog.lh.warehouse=hdfs://namenode:9000/p08/warehouse `
+  --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions `
+  --conf spark.driver.extraJavaOptions=-Dderby.system.home=/tmp/derby `
+  -f sql/p08_dl_predictions.sql
+```
+
+Contrôle attendu : `gru_24h_runA_l1 | test | 310920 | 5 | 24 |
+2013-11-08 03:00:00 | 2014-02-27 01:00:00 | 0.198047 | 0.201439 |
+151184 | eb401abb29f4a656 | a35e723`. Le hash et le commit viennent de
+`test_seen.json` : le test n'a été lu qu'une seule fois. L'export vers le
+dashboard se fait avec `sql/p08_dashboard_export_dl.sql` ; la page
+**Modeles (documentation)** affiche la table et un extrait de 200 lignes.
+
+**À dire :** « Le Deep Learning est bien intégré à la chaîne Iceberg, mais en
+parallèle de Job 2, car Job 2 agrège par mois et détruit le motif horaire
+nécessaire au GRU. »
+
 ## 5. Tableau de bord — les 10 pages (1 min)
 
 ```powershell
@@ -149,7 +181,7 @@ Ouvrir `http://localhost:8502`, puis parcourir dans l'ordre :
 | 7 | Validation (fixture) | **`sample-fixture-v11` est une fixture**, pas de la production |
 | 8 | Qualite | `n_missing_slots` dérivé en v1 (48 − n_slots) |
 | 9 | Std vs ToU | run 5 foyers 100 % Std ; le run 50 foyers ajoute 10 foyers ToU réels ; la ligne `tou-test-mr2` reste synthétique |
-| 10 | Modeles (documentation) | Livrable exigé oralement (formulation affichée en haut de page, voir §6) ; GRU test lu une fois, MAE 0,1980 vs 0,2014 (gain faible) ; AE = résultat négatif, test non lu |
+| 10 | Modeles (documentation) | Livrable exigé oralement (formulation affichée en haut de page, voir §6) ; GRU test lu une fois, MAE 0,1980 vs 0,2014 (gain faible) ; table `lh.p08.dl_predictions` (310 920 lignes) ; AE = résultat négatif, test non lu |
 
 Les 10 pages ont été vérifiées dans le navigateur le 2026-11-20 : **0 erreur
 console**. Les encadrés colorés (`st.warning` / `st.error` / `st.info`) ont été
@@ -167,14 +199,14 @@ Le Deep Learning (GRU + autoencodeur) est un livrable exigé oralement par l'ens
 1. « Les données sont l'échantillon réel de 5 foyers, converti en base horaire, avec des fenêtres de 48 h en entrée et 24 h en sortie, et un split temporel 70/15/15 en train/validation/test. »
 2. « Le GRU `runA_l1` a été choisi sur la validation seule (MAE 0,1206 contre 0,1231 pour `runB_l1cal`) ; le test n'a été lu qu'une seule fois : MAE 0,1980 contre 0,2014 pour la base saisonnière, soit un écart de 0,0034 kWh — je ne le présente pas comme un gain important. »
 3. « L'autoencodeur est un résultat négatif documenté : la règle (40 % de détection à 1 % de fausses alertes) a été fixée avant de lire le test, elle donne 12,4 % sur la validation, donc le test n'a jamais été lu. C'est une conclusion valable, pas un résultat masqué. »
-4. « Je montre la page **Modeles (documentation)** du dashboard : la formulation orale/non écrite est affichée en haut de page, avec les métriques du GRU et le résultat négatif de l'autoencodeur. »
+4. « Je montre la page **Modeles (documentation)** du dashboard : la formulation orale/non écrite est affichée en haut de page, avec les métriques du GRU, la table Iceberg `lh.p08.dl_predictions` et le résultat négatif de l'autoencodeur. »
 
 **Questions probables du jury :**
 
 - **Q : Pourquoi faire du DL si le PDF le met hors périmètre ?** R : Livrable exigé oralement par l'enseignante ; le sujet écrit (§12) le classe hors périmètre et il n'y a pas de confirmation écrite à ce jour. On le dit explicitement.
 - **Q : Le gain du GRU est-il convaincant ?** R : Non : 0,1980 contre 0,2014, écart 0,0034 kWh ; test lu une seule fois. On ne revendique pas d'amélioration majeure.
 - **Q : L'autoencodeur a-t-il échoué ?** R : Il n'a pas atteint le seuil pré-enregistré (12,4 % au lieu de 40 % à 1 % de fausses alertes) ; le test n'a pas été lu. C'est un résultat négatif documenté, donc une conclusion honnête.
-- **Q : Est-ce du Big Data ?** R : Non : c'est un échantillon horaire de 5 foyers, distinct des compteurs HDFS/MR2 ; il n'est pas présenté comme un volume Big Data.
+- **Q : Est-ce du Big Data ?** R : Non : c'est un échantillon horaire de 5 foyers, distinct des compteurs HDFS/MR2 ; il n'est pas présenté comme un volume Big Data. Ses prédictions sont en revanche chargées dans une vraie table Iceberg, en branche parallèle à Job 2.
 
 ---
 ## Ce qui reste à demander au binôme (run 8,5 Go)
