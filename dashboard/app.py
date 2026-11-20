@@ -71,19 +71,34 @@ if monthly_50mix is not None:
 # ---------------------------------------------------------------- 1. ensemble
 if page == "Vue d'ensemble":
     st.title("Vue d'ensemble")
-    if daily is None:
-        st.caption("Export manquant : lance sql/p08_dashboard_export.sql")
+    jeu = st.radio("Jeu de donnees", [
+        "Run reel 50 foyers (Std + ToU)",
+        "Run reel 5 foyers (reference)",
+    ], horizontal=True)
+    if jeu.startswith("Run reel 50"):
+        src = daily_50mix
+        source_txt = (
+            "Source : lh.p08.daily_v11, MR1 v1.1, 50 foyers reels "
+            "(40 Std + 10 ToU), dataset_version=mr1-v11-50mix."
+        )
+        export_txt = "sql/p08_dashboard_export_50mix.sql"
+    else:
+        src = daily
+        source_txt = (
+            "Source : lh.p08.daily, MR1 **4 colonnes**, echantillon de reference "
+            "5 foyers (total exact 28 416,517 kWh)."
+        )
+        export_txt = "sql/p08_dashboard_export.sql"
+    if src is None:
+        st.caption(f"Export manquant : lance {export_txt}")
         st.stop()
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Foyers", daily["lclid"].nunique())
-    c2.metric("Jours-foyers", len(daily))
-    c3.metric("Periode", f"{daily['day'].min():%Y-%m-%d} -> {daily['day'].max():%Y-%m-%d}")
-    c4.metric("Energie totale", f"{daily['total_kwh'].sum():,.0f} kWh")
-    st.caption(
-        "Source : lh.p08.daily, MR1 **4 colonnes** sur l'echantillon 5 foyers. "
-        "Total exact 28 416,517 kWh (arrondi a l'affichage)."
-    )
-    q = daily["quality_flag"].value_counts().rename_axis("quality_flag").reset_index(name="jours")
+    c1.metric("Foyers", src["lclid"].nunique())
+    c2.metric("Jours-foyers", len(src))
+    c3.metric("Periode", f"{src['day'].min():%Y-%m-%d} -> {src['day'].max():%Y-%m-%d}")
+    c4.metric("Energie totale", f"{src['total_kwh'].sum():,.3f} kWh")
+    st.caption(source_txt)
+    q = src["quality_flag"].value_counts().rename_axis("quality_flag").reset_index(name="jours")
     st.plotly_chart(px.bar(q, x="quality_flag", y="jours", text="jours",
                            title="Jours par indicateur qualite",
                            labels={"jours": "nombre de jours-foyers"}),

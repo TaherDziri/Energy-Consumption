@@ -140,7 +140,7 @@ Ouvrir `http://localhost:8502`, puis parcourir dans l'ordre :
 
 | # | Page | Point à montrer |
 |---|---|---|
-| 1 | Vue d'ensemble | 5 foyers, 3 191 jours, 28 416,517 kWh ; préciser que c'est l'ancien export 4 colonnes |
+| 1 | Vue d'ensemble | sélecteur « Jeu de données » : **50 foyers par défaut** (37 145 jours, 429 889,222 kWh) ; l'option 5 foyers (3 191 jours, 28 416,517 kWh, export 4 colonnes) reste la référence |
 | 2 | Profil horaire | **pas** un profil 30 min : échantillon horaire, libellé explicite |
 | 3 | Journees et pics | pics `NULL` en MR1 v1 (4 colonnes) |
 | 4 | Couts (GBP) | lignes de validation ; coût `non calculable` en 2012 |
