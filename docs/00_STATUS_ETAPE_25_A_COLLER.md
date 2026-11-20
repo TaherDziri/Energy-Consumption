@@ -49,9 +49,16 @@
   synthétiques**. Les temps F11 (2026-11-11) ont été mesurés avec les **anciens**
   jars et ne sont pas attribués au jar v1.1 ; avec le nouveau jar, seule la
   mesure ci-dessus (`elapsed_ms=22 116` sur 3 191 lignes) est rapportée.
+- **Matrice T01–T10 complétée** : les définitions exactes étaient dans
+  `ideep08.pdf` §17 « Plan de tests et critères d'acceptation » (page 16), pas
+  en §8.2 comme supposé. Elles ont été recopiées telles quelles dans
+  `docs/04_PREUVES_F01_F11.md`. T08 (reproductibilité) est prouvé par un
+  relancement de MR2 avec le même jar et le même `run_id` : sortie octet pour
+  octet identique, SHA-256 `2284eff2cd1e7cfe107607d636a56559ba8de35e769b2677317c7f96daab9d02`.
+  Le test ToU du 19/01/2013 reste une preuve supplémentaire, pas T07 (T07 =
+  Iceberg dans le PDF).
 - **Toujours non vérifié** : la convention début/fin de période, la citation du
-  guide officiel dans `ideep08.pdf`, la provenance de `tariffs_2013_price.csv`,
-  et les définitions exactes de T01/T09/T10 (à recopier du PDF, pas inventer).
+  guide officiel dans `ideep08.pdf`, la provenance de `tariffs_2013_price.csv`.
   Le run 8,5 Go du binôme n'a pas été reproduit localement : identifiant de job,
   compteurs `P08_MR2` complets, chemin/taille/lignes d'entrée, mappers/reducers,
   phases, configuration, Combiner, commit du jar, lignes de sortie et

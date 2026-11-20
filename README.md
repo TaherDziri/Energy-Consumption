@@ -173,6 +173,11 @@ re-measured, so the table above must not be attributed to the v1.1 jar.
   excluding taxes and standing charges).
 - Single Docker host; the 8.5 GB full run belongs to Person 1 and is not
   reproduced here.
+- `ideep08.pdf` §12 lists **Deep Learning forecasting as out of scope**, and
+  §9.2 restricts the *optional* ML part to classical methods (no
+  LSTM/Transformer/autoencoder). The Deep Learning part of this repository is
+  therefore **extra work outside the cahier des charges**, not an answer to a
+  requirement.
 
 ## Data policy
 
@@ -185,6 +190,8 @@ Raw data (8.5 GB) and job outputs are never committed: `.gitignore` excludes
 - `docs/01_MR1_MR2_CONTRACT.md` - 10-column schema, slot rule, invariants
 - `docs/03_MR2_DESIGN.md` - Job 2 design, decisions, tests T05-T08
 - `docs/04_PREUVES_F01_F11.md` - F01 hashes, F06 quality, F10 rationale,
-  F11 volumes, T01-T10 matrix
+  F11 volumes, T01-T10 matrix (exact wording from `ideep08.pdf` §17)
+- `docs/00_STATUS_ETAPE_25_A_COLLER.md` - ready-to-paste text for the
+  user-owned status log (that file is deliberately not edited)
 - `docs/00_PROJECT_STATUS.md` - chronological log of every step
 - `docs/cluster-runbook.md` - cluster start/stop and troubleshooting

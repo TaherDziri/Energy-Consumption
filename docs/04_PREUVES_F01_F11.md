@@ -174,18 +174,28 @@ du jar MR2, nombre de lignes de sortie, et s'il s'agit de MR1 ou MR2.
 
 ## 5. Matrice de tests
 
-| ID | Objet | Statut | Preuve |
+> **Source exacte :** `ideep08.pdf` §17 « Plan de tests et critères
+> d'acceptation » (page 16), et non §8.2 comme supposé auparavant. Libellés et
+> résultats attendus recopiés du PDF, sans invention. Le PDF demande aussi
+> « un petit CSV artificiel avec calculs manuels documentés » et « au moins une
+> date proche d'un changement d'heure, avec convention annoncée » : le run réel
+> contient 17 jours DST et la convention locale est annoncée en §1.
+
+| ID | Scénario / résultat attendu (PDF §17) | Statut | Preuve |
 |---|---|---|---|
-| T01 | **definition absente du depot** | non evalue | a recopier depuis `ideep08.pdf` §8.2 (ne pas inventer) |
-| T02 | test MR1 v1.1 (definition PDF absente ; associe a MR1 v1.1 dans `docs/00`) | non evalue | MR1 v1.1 est **livre** (Taher, 2026-11-06), mais la definition exacte manque toujours : a recopier depuis `ideep08.pdf` §8.2 |
-| T03 | idem T02 | non evalue | idem |
-| T04 | idem T02 | non evalue | idem |
-| T05 | deux jours, calendrier connu | **fait** | `docs/03` §9 : 46,3 kWh, 6,587564 GBP, `partial_data` |
-| T06 | hors tarif 2013 -> cout NULL | **fait** | `2012-03` : cout vide, couverture 0, `no_tariff` |
-| T07 | ToU 19/01/2013, calcul manuel | **fait** | 48 creneaux, 18,341400 GBP, `ok` |
-| T08 | montee en charge synthetique | **fait (volume synthetique)** | 155 000 lignes, 4 mappers, 49 541 ms (2026-11-09) |
-| T09 | **definition absente du depot** | non evalue | a recopier depuis `ideep08.pdf` §8.2 |
-| T10 | **definition absente du depot** | non evalue | a recopier depuis `ideep08.pdf` §8.2 |
+| T01 — Parsing | « Ligne valide, en-tête répété, date illisible » → « Ligne valide admise ; cas problématiques comptés/quarantinés » | **fait** | MR1 v1.1 : `header_skipped=1`, `malformed=0`, `value_parse_error=0`, `missing_null=5`, `negative=0` |
+| T02 — MR1 | « Journée de 48 mesures connues » → « Somme kWh, pic et créneau exacts » | **fait** | run réel 5 foyers + `check_v11_vs_mr2.py` : kwh écart ≤ 2,8e-6, pic ≤ 1,0e-7 |
+| T03 — Doublons | « Deux copies identiques et un conflit de créneau » → « Déduplication conforme, conflit explicite » | **fait** | `duplicate_rows_averaged=105`, `tariff_conflict=0` ; les 20 slots répétés du 27/10 sont conservés et comptés |
+| T04 — Lacune | « Journée avec mesures manquantes » → « Complétude inférieure à 100 %, aucune invention de zéro » | **fait** | `n_missing_slots` issu de l'attendu local 46/48/50, créneau absent de la série (jamais `slot:0`), `partial_data=5`, `missing_slots_mismatch=0` |
+| T05 — MR2 | « Deux jours, calendrier de prix connu » → « Coût £ et total kWh corrects à la main » | **fait** | `docs/03` §9 : 46,3 kWh, 6,587564 GBP, `partial_data` |
+| T06 — Hors tarif | « Signal 2013 absent ou année non couverte » → « Coût null/partiel et taux de couverture indiqué » | **fait** | `2012-03` : coût vide, couverture 0, `no_tariff` |
+| T07 — Iceberg | « Charger les deux tables + requête SQL » → « Métadonnées et lignes disponibles, résultats cohérents » | **fait** | `sql/p08_v11_real.sql` : `lh.p08.monthly` 108 lignes + `lh.p08.daily_v11` 3 191, écart 0,0 |
+| T08 — Reproductibilité | « Relancer jobs avec même lot/version » → « Même agrégation numérique et même schéma » | **fait** (2026-11-20) | MR2 relancé avec le même jar, la même entrée et le même `run_id` : sortie **octet pour octet identique**, SHA-256 `2284eff2cd1e7cfe107607d636a56559ba8de35e769b2677317c7f96daab9d02` (108 lignes, `elapsed_ms=22 629`) |
+| T09 — Volumétrie | « Exécuter avec lot réduit puis élargi » → « Temps et compteurs consignés, limites analysées » | **fait (volumes synthétiques)** | F11 §4 : 3 191 / 155 000 / 620 000 lignes, temps et compteurs consignés ; aucune accélération linéaire revendiquée |
+| T10 — Visualisation | « Consommation et coût pour un foyer/mois » → « Unités et dates correctes, couverture affichée » | **fait** | dashboard page « Run reel v1.1 » : kWh, GBP (£), `price_coverage`, mois ; 10 pages vérifiées, 0 erreur console |
+
+Le test ToU du 19/01/2013 (48 créneaux, 18,341400 GBP, `ok`) est une **preuve
+supplémentaire**, pas T07 : T07 est le test Iceberg dans le PDF.
 
 Tests unitaires (2026-11-20) : job 1 **37 tests / 4 classes**, job 2 **29 tests
 / 6 classes**, `mvn clean test` = `BUILD SUCCESS` pour les deux modules. Les
